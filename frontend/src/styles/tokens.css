@@ -1,0 +1,59 @@
+/*
+ * Factory Finance Design System Tokens V1.0
+ * 品牌、文字、背景、语义状态、排版与布局 Token。
+ * 业务页面禁止直接散落十六进制颜色值，统一使用以下 Token。
+ * 完整规范见 docs/DESIGN_SYSTEM.md。
+ */
+@theme {
+  /* ---- Color Tokens ---- */
+  --color-brand: #635bff;
+  --color-brand-hover: #5147e5;
+  --color-brand-subtle: #eeebff;
+
+  --color-text-primary: #1a1f36;
+  --color-text-secondary: #425466;
+  --color-text-muted: #697386;
+
+  --color-background: #f7f9fc;
+  --color-surface: #ffffff;
+  --color-surface-hover: #f7f9fc;
+  --color-border: #e3e8ee;
+
+  --color-success: #09825d;
+  --color-success-subtle: #e8f5ee;
+
+  --color-warning: #b76e00;
+  --color-warning-subtle: #fff4d6;
+
+  --color-danger: #cd3d64;
+  --color-danger-subtle: #fce8ef;
+
+  /* ---- Typography Tokens ---- */
+  --font-sans: 'Inter Variable', 'Noto Sans SC', -apple-system, 'Segoe UI',
+    'Microsoft YaHei', sans-serif;
+
+  --text-page-title: 24px;
+  --text-page-title--line-height: 32px;
+  --text-section-title: 16px;
+  --text-section-title--line-height: 24px;
+  --text-body: 14px;
+  --text-body--line-height: 22px;
+  --text-table: 13px;
+  --text-table--line-height: 20px;
+  --text-caption: 12px;
+  --text-caption--line-height: 18px;
+  --text-metric: 28px;
+  --text-metric--line-height: 36px;
+  --text-metric-lg: 32px;
+  --text-metric-lg--line-height: 40px;
+
+  /* ---- Layout Tokens ---- */
+  --width-sidebar: 224px;
+  --width-sidebar-collapsed: 56px;
+  --height-header: 56px;
+  --height-table-row: 44px;
+  --height-table-header: 40px;
+  --height-control: 36px;
+  --radius-control: 6px;
+  --radius-panel: 8px;
+}

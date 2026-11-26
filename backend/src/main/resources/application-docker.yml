@@ -1,0 +1,25 @@
+# Docker Compose 部署环境。
+# 所有敏感配置必须通过环境变量注入（见 .env.example），本文件不包含任何真实密码或密钥。
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      pool-name: ff-hikari
+      maximum-pool-size: 10
+      minimum-idle: 2
+
+app:
+  security:
+    jwt:
+      secret: ${JWT_SECRET}
+
+springdoc:
+  api-docs:
+    enabled: false
+
+logging:
+  level:
+    com.factoryfinance: info

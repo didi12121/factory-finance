@@ -1,0 +1,32 @@
+import { expect, test } from '@playwright/test'
+
+test.describe('键盘可访问性', () => {
+  test('Tab 键可移动焦点，Enter 激活导航链接', async ({ page }) => {
+    await page.goto('/workbench')
+
+    await page.keyboard.press('Tab')
+    const focused = await page.evaluate(() => document.activeElement?.tagName ?? '')
+    expect(focused).not.toBe('BODY')
+
+    const link = page.getByRole('link', { name: /应收账款/ })
+    await link.focus()
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/\/business\/receivables/)
+    await expect(page.getByRole('heading', { name: '应收账款' })).toBeVisible()
+  })
+
+  test('对话框打开后焦点进入对话框，Escape 可关闭', async ({ page }) => {
+    await page.goto('/dev/design-system')
+    await page.locator('[data-testid="dialog-open"]').click()
+
+    await expect(page.getByRole('dialog')).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog')).toBeHidden()
+  })
+
+  test('表单控件具备可访问名称', async ({ page }) => {
+    await page.goto('/dev/design-system')
+    await expect(page.getByLabel('客户名称')).toBeVisible()
+    await expect(page.getByLabel('收款金额')).toBeVisible()
+  })
+})

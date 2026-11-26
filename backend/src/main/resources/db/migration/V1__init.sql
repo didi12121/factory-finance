@@ -1,0 +1,5 @@
+-- Factory Finance — baseline migration (Phase 0.1)
+-- 本阶段仅建立 Flyway 迁移机制与迁移基线。
+-- 业务表结构（账户、流水、应收应付、凭证等）须经架构师审核确认后，
+-- 在 Phase 1+ 的迁移脚本中创建，草案见 docs/DATABASE_DESIGN.md。
+-- 禁止在迁移脚本中执行任何破坏性初始化（如 DROP DATABASE / TRUNCATE）。

@@ -1,0 +1,28 @@
+# 本地开发环境（默认）。
+# 数据库连接与 JWT 密钥均为本地开发占位值，生产/部署环境通过环境变量注入，见 application-docker.yml。
+spring:
+  datasource:
+    url: ${DB_URL:jdbc:mysql://127.0.0.1:3306/factory_finance?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:factory}
+    password: ${DB_PASSWORD:factory_dev_password}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      pool-name: ff-hikari
+      maximum-pool-size: 10
+      minimum-idle: 2
+      connection-timeout: 10000
+
+app:
+  security:
+    jwt:
+      secret: ${JWT_SECRET:dev-only-jwt-secret-not-for-production-0123456789abcdef}
+      issuer: factory-finance
+      ttl: 2h
+
+springdoc:
+  api-docs:
+    enabled: true
+
+logging:
+  level:
+    com.factoryfinance: debug
