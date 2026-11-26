@@ -60,16 +60,16 @@ factory-finance/
 
 ## 本地开发运行
 
-### 环境准备（本机已验证路径）
+### 环境准备
 
-- JDK 21：`C:\Users\陈\.jdks\dragonwell-ex-21.0.10`
-- Maven（IDEA 自带）：`C:\Program Files\JetBrains\IntelliJ IDEA 2025.3.1\plugins\maven\lib\maven3\bin\mvn.cmd`
-- Node.js 24 / npm 11（前端）
+- **JDK 21**：设置 `JAVA_HOME` 指向 JDK 21 安装目录（或将 `bin` 加入 `PATH`）。
+- **Maven**：无需全局安装，使用仓库内置 Maven Wrapper（`backend/mvnw` / `mvnw.cmd`，Maven 3.9.11）。
+- **Node.js**：`^22.22.2 || >=24.15.0`（`frontend/.nvmrc`），npm 随 Node 安装。
 
-PowerShell 中临时设置 JDK 21（仅当前会话）：
+PowerShell 中临时设置 JAVA_HOME（仅当前会话，路径按本机实际安装位置填写）：
 
 ```powershell
-$env:JAVA_HOME = 'C:\Users\陈\.jdks\dragonwell-ex-21.0.10'
+$env:JAVA_HOME = '<JDK 21 安装目录>'
 $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 java -version
 ```
@@ -87,18 +87,30 @@ docker compose up -d mysql
 
 ### 2. 启动后端（8080）
 
+Maven Wrapper（`backend/mvnw` / `mvnw.cmd`）已内置 Maven 3.9.11，无需全局安装 Maven；脚本基于 `JAVA_HOME` / `PATH` 探测 JDK 21：
+
 ```powershell
-& 'C:\Program Files\JetBrains\IntelliJ IDEA 2025.3.1\plugins\maven\lib\maven3\bin\mvn.cmd' -f backend/pom.xml spring-boot:run
+# Windows
+powershell -ExecutionPolicy Bypass -File scripts\dev-backend.ps1
 ```
+
+```bash
+# Linux / macOS
+./scripts/dev-backend.sh
+```
+
+等价命令：`backend\mvnw.cmd -f backend/pom.xml spring-boot:run`（或 `./backend/mvnw ...`）。
 
 健康检查：`GET http://localhost:8080/api/v1/health`（其余业务接口当前未实现，未认证返回 401）。
 
 ### 3. 启动前端（5173）
 
-```powershell
+Node.js 版本要求：`^22.22.2 || >=24.15.0`（见 `frontend/.nvmrc` 与 `package.json` engines）。
+
+```bash
 cd frontend
 npm install
-npm run dev
+npm run dev        # Linux/macOS 也可用 ./scripts/dev-frontend.sh
 ```
 
 - Dev server：`http://localhost:5173`
@@ -113,13 +125,13 @@ docker compose up -d --build    # 2. 构建并启动 MySQL + 后端 + 前端
 ```
 
 - 访问入口：**http://localhost:8088**（Nginx 提供前端静态资源，`/api` 反向代理到 backend:8080，支持 SPA 路由刷新）
-- 后端直连：`http://127.0.0.1:8080`；MySQL：`127.0.0.1:3306`（仅绑定本机回环）
+- 后端直连：`http://127.0.0.1:${BACKEND_PORT:-8080}`（容器内部固定 8080，宿主机映射端口由 `.env` 的 `BACKEND_PORT` 配置）；MySQL：`127.0.0.1:3306`（仅绑定本机回环）
 - 各服务带健康检查（mysqladmin ping / actuator/health / wget），Compose 按健康状态编排启动顺序
 - 停止：`docker compose down`（数据卷 `mysql-data` 保留；彻底清空数据才使用 `docker compose down -v`）
 
 ## 数据库初始化
 
-**无需手工建表**：Flyway 在应用启动时自动执行 `backend/src/main/resources/db/migration/` 下的迁移脚本（`baseline-on-migrate` + `validate-on-migrate`）。
+**无需手工建表**：Flyway 在应用启动时自动执行 `backend/src/main/resources/db/migration/` 下的迁移脚本（`validate-on-migrate`；`baseline-on-migrate` 默认**关闭**，已有非空 schema 的数据库须人工审核迁移历史后再启用）。
 
 - 当前 `V1__init.sql` 仅为迁移基线（Phase 0.1 不创建业务表）。
 - 业务表结构为草案（`docs/DATABASE_DESIGN.md`），经架构师审核后在 Phase 1+ 的迁移脚本中创建。
@@ -127,35 +139,53 @@ docker compose up -d --build    # 2. 构建并启动 MySQL + 后端 + 前端
 
 ## 测试命令
 
-后端（需 JDK 21 环境变量，见上）：
+一键运行（后端 + 前端 + E2E + 生产构建防护）：
 
 ```powershell
-& 'C:\Program Files\JetBrains\IntelliJ IDEA 2025.3.1\plugins\maven\lib\maven3\bin\mvn.cmd' -f backend/pom.xml test    # 单元测试
-& 'C:\Program Files\JetBrains\IntelliJ IDEA 2025.3.1\plugins\maven\lib\maven3\bin\mvn.cmd' -f backend/pom.xml verify   # 含集成测试（Testcontainers 需要 Docker）
+# Windows
+powershell -ExecutionPolicy Bypass -File scripts\run-tests.ps1
 ```
 
-等价写法（PATH 中有 mvn 时）：`mvn test` / `mvn verify`。集成测试使用 Testcontainers 1.21.4 启动 `mysql:8.4` 容器验证 Flyway 迁移、MySQL 连接、健康检查与安全策略，**运行前需确保 Docker 服务可用**。
+```bash
+# Linux / macOS
+./scripts/run-tests.sh
+```
+
+后端（Maven Wrapper，需 JDK 21）：
+
+```bash
+backend/mvnw -f backend/pom.xml test      # 单元测试
+backend/mvnw -f backend/pom.xml verify    # 含集成测试（Testcontainers 需要 Docker）
+```
+
+集成测试使用 Testcontainers 1.21.4 启动 `mysql:8.4` 容器验证 Flyway 迁移、MySQL 连接、健康检查与安全策略，**运行前需确保 Docker 服务可用**。
 
 前端：
 
-```powershell
+```bash
 cd frontend
-npm test              # Vitest 单元测试（金额格式化、组件行为、路由布局等）
-npm run test:e2e      # Playwright 真实浏览器端到端测试
+npm test              # Vitest 单元测试（金额格式化/校验、组件行为、路由布局等）
+npm run test:e2e      # Playwright 真实浏览器端到端测试 + 截图
+npm run test:e2e:prod # 生产构建防护（/dev/design-system 不可用）
 ```
+
+CI：`.github/workflows/ci.yml` 覆盖后端单测/集成测试、前端类型检查/单测/生产构建、Playwright E2E 与截图 artifacts、Docker Compose 配置校验。
 
 ## 截图生成
 
 `npm run test:e2e`（在 `frontend/` 目录）会构建测试模式产物、启动真实应用并用真实浏览器执行验证，截图输出到：
 
 ```text
-artifacts/screenshots/phase-0.1/
+artifacts/screenshots/phase-0.1.1/
 ├── shell-1920x1080.png
 ├── shell-1440x900.png
 ├── shell-1280x800.png
 ├── shell-mobile-390x844.png
 ├── design-system.png
 ├── data-table.png
+├── data-table-empty.png
+├── financial-metric.png
+├── financial-status.png
 ├── dialog.png
 └── detail-sheet.png
 ```

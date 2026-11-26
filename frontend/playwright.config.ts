@@ -24,7 +24,7 @@ export default defineConfig({
   projects: [
     {
       name: 'desktop-chrome',
-      testIgnore: /mobile\.spec\.ts/,
+      testIgnore: /(?:mobile|prod-guard)\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1920, height: 1080 } },
     },
     {

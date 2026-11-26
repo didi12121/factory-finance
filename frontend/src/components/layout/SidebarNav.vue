@@ -17,12 +17,10 @@ function isActive(path: string): boolean {
 <template>
   <nav class="flex flex-1 flex-col gap-4 overflow-y-auto px-2 py-4" aria-label="主导航">
     <div v-for="group in navGroups" :key="group.label" class="flex flex-col gap-1">
-      <p
-        v-if="!appStore.sidebarCollapsed"
-        class="px-2 text-caption font-medium text-text-muted"
-      >
-        {{ group.label }}
-      </p>
+      <div v-if="!appStore.sidebarCollapsed" class="flex items-center gap-2 px-2">
+        <p class="text-caption font-medium text-text-muted">{{ group.label }}</p>
+        <Badge v-if="group.items.every((item) => !item.implemented)" variant="muted">未实现</Badge>
+      </div>
 
       <RouterLink
         v-for="item in group.items"
@@ -31,7 +29,7 @@ function isActive(path: string): boolean {
         class="flex h-9 items-center gap-2.5 rounded-control px-2 text-body transition-colors"
         :class="
           isActive(item.path)
-            ? 'bg-brand-subtle font-medium text-brand'
+            ? 'bg-brand-subtle font-medium text-brand-foreground'
             : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'
         "
         :aria-current="isActive(item.path) ? 'page' : undefined"
@@ -42,9 +40,6 @@ function isActive(path: string): boolean {
         </Tooltip>
         <component :is="item.icon" v-else class="size-4 shrink-0" />
         <span v-if="!appStore.sidebarCollapsed" class="min-w-0 flex-1 truncate">{{ item.label }}</span>
-        <Badge v-if="!appStore.sidebarCollapsed && !item.implemented" variant="muted" class="shrink-0">
-          未实现
-        </Badge>
       </RouterLink>
     </div>
   </nav>

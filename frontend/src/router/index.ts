@@ -24,8 +24,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'business/receivables', ...placeholder('应收账款', 'Phase 2') },
       { path: 'business/payables', ...placeholder('应付账款', 'Phase 2') },
       { path: 'business/processing-fee', ...placeholder('加工费回款', 'Phase 2') },
-      { path: 'business/expenses', ...placeholder('费用管理', 'Phase 2') },
-      { path: 'business/payroll', ...placeholder('工资管理', 'Phase 2') },
+      { path: 'business/expenses', ...placeholder('费用管理', 'Phase 1') },
+      { path: 'business/payroll', ...placeholder('工资管理', 'Phase 1') },
       { path: 'business/shareholder', ...placeholder('股东往来', 'Phase 2') },
       { path: 'business/fixed-assets', ...placeholder('固定资产', 'Phase 4') },
 

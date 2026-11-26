@@ -34,11 +34,13 @@ function onSizeChange(value: string): void {
   <div class="flex flex-wrap items-center justify-between gap-3">
     <p class="text-caption text-text-muted">共 <span class="tabular">{{ props.total }}</span> 条</p>
 
-    <div class="flex flex-wrap items-center gap-3">
+    <!-- 桌面端保持单行；移动端允许换行 -->
+    <div class="flex items-center gap-3 max-lg:flex-wrap">
       <Select
         :model-value="String(props.pageSize)"
         :options="sizeOptions"
         class="w-[112px] shrink-0"
+        aria-label="每页条数"
         @update:model-value="onSizeChange"
       />
       <div class="flex shrink-0 items-center gap-2">

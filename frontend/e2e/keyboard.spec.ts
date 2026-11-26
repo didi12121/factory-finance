@@ -29,4 +29,16 @@ test.describe('键盘可访问性', () => {
     await expect(page.getByLabel('客户名称')).toBeVisible()
     await expect(page.getByLabel('收款金额')).toBeVisible()
   })
+
+  test('表格支持键盘触发排序（Enter / Space）', async ({ page }) => {
+    await page.goto('/dev/design-system')
+    const header = page.locator('[data-testid="data-table"] th', { hasText: '单据编号' })
+
+    await header.focus()
+    await page.keyboard.press('Enter')
+    await expect(header).toHaveAttribute('aria-sort', 'ascending')
+
+    await page.keyboard.press(' ')
+    await expect(header).toHaveAttribute('aria-sort', 'descending')
+  })
 })

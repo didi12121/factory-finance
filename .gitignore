@@ -13,6 +13,7 @@ frontend/.vite/
 
 # ---- Test outputs ----
 test-results/
+test-results-prod/
 playwright-report/
 blob-report/
 .playwright/
@@ -36,5 +37,5 @@ Thumbs.db
 logs/
 *.log
 
-# DSH Æ½Ì¨É³Ïä¹¤¼ş£¨·ÇÏîÄ¿ÎÄ¼ş£©
+# DSH å¹³å°æ²™ç®±å·¥ä»¶ï¼ˆéé¡¹ç›®æ–‡ä»¶ï¼‰
 .acl-recovery/

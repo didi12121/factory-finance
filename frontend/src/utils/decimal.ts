@@ -1,57 +1,41 @@
 /**
- * 十进制金额字符串的精确运算（BigInt 定点实现）。
+ * 十进制金额字符串的精确运算（BigInt 定点实现）—— 中间精确运算层。
  *
- * 财务金额禁止依赖 JavaScript Number 运算；本模块所有输入输出均为十进制字符串，
- * 内部按 10^scale 定点放大为 BigInt 运算，不产生浮点误差。
+ * 契约（与 utils/money.ts 的业务金额校验分离）：
+ * - 本模块输入输出均为**规范化十进制字符串**（可含负号，可含高精度小数，
+ *   禁止千分位逗号、禁止科学计数法、禁止前导零），用于中间精确运算；
+ * - 业务金额（人民币 DECIMAL(18,2)）的格式、范围合法性校验在 money.ts；
+ * - 禁止使用 Number / parseFloat / 浮点运算解决金额比较与计算问题。
  */
 
 /** 金额字符串：十进制字符串，禁止使用 Number 承载财务金额 */
 export type DecimalString = string
 
-const AMOUNT_RE = /^-?(0|[1-9]\d*)(\.\d{1,2})?$/
-
-/** 宽松十进制（允许高精度中间值，用于运算与舍入） */
+/** 宽松十进制（允许高精度中间值，用于运算与舍入）：无逗号、无科学计数法 */
 const DECIMAL_RE = /^-?(0|[1-9]\d*)(\.\d+)?$/
-
-/** 校验金额格式：整数或最多两位小数，禁止科学计数法、千分位、多余前导零 */
-export function isValidAmount(value: string): boolean {
-  return AMOUNT_RE.test(value.trim())
-}
-
-/**
- * 归一化用户输入：去除空白与千分位逗号后校验格式。
- * 返回归一化的十进制字符串；非法输入返回 null。
- */
-export function normalizeAmount(value: string): DecimalString | null {
-  const cleaned = value.trim().replace(/,/g, '')
-  if (!isValidAmount(cleaned)) {
-    return null
-  }
-  return normalize(cleaned)
-}
 
 interface Scaled {
   value: bigint
   scale: number
 }
 
+/** 校验规范化十进制字符串（中间运算层；不校验 DECIMAL(18,2) 范围） */
+export function isDecimalString(value: string): boolean {
+  return DECIMAL_RE.test(value.trim())
+}
+
 function parseScaled(value: DecimalString): Scaled {
   const cleaned = value.trim()
   if (!DECIMAL_RE.test(cleaned)) {
-    throw new Error(`非法金额格式: ${value}`)
+    throw new Error(`非法十进制金额格式: ${value}`)
   }
   const negative = cleaned.startsWith('-')
   const unsigned = negative ? cleaned.slice(1) : cleaned
   const [intPart = '0', fracPart = ''] = unsigned.split('.')
   const scale = fracPart.length
   const digits = intPart + fracPart.padEnd(scale, '0')
-  const value2 = BigInt(digits)
-  return { value: negative ? -value2 : value2, scale }
-}
-
-function normalize(value: DecimalString): DecimalString {
-  const { value: scaled, scale } = parseScaled(value)
-  return renderTrimmed(scaled, scale)
+  const scaled = BigInt(digits)
+  return { value: negative ? -scaled : scaled, scale }
 }
 
 function renderTrimmed(value: bigint, scale: number): DecimalString {
@@ -92,6 +76,20 @@ export function multiplyAmounts(a: DecimalString, b: DecimalString): DecimalStri
   const sa = parseScaled(a)
   const sb = parseScaled(b)
   return renderTrimmed(sa.value * sb.value, sa.scale + sb.scale)
+}
+
+/**
+ * 精确十进制比较：a < b → -1；a = b → 0；a > b → 1。
+ * 比较基于 BigInt 定点对齐，禁止 Number / parseFloat / 浮点运算。
+ * 输入必须为规范化十进制字符串（千分位等由 money.ts 归一化后再比较）。
+ *
+ * compareAmounts('-100.00', '0.01') → -1
+ * compareAmounts('0.1', '0.10')     → 0
+ * compareAmounts('1.05', '1.049')   → 1
+ */
+export function compareAmounts(a: DecimalString, b: DecimalString): number {
+  const { left, right } = align(a, b)
+  return left < right ? -1 : left > right ? 1 : 0
 }
 
 /**

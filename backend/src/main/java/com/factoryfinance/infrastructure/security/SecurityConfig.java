@@ -47,17 +47,21 @@ public class SecurityConfig {
 
     private final ObjectMapper objectMapper;
     private final TraceIdFilter traceIdFilter;
+    private final CorsConfigurationSource corsConfigurationSource;
 
-    public SecurityConfig(ObjectMapper objectMapper, TraceIdFilter traceIdFilter) {
+    public SecurityConfig(ObjectMapper objectMapper,
+                          TraceIdFilter traceIdFilter,
+                          CorsConfigurationSource corsConfigurationSource) {
         this.objectMapper = objectMapper;
         this.traceIdFilter = traceIdFilter;
+        this.corsConfigurationSource = corsConfigurationSource;
     }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
-                .cors(cors -> cors.configurationSource(corsConfigurationSource(null)))
+                .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
@@ -73,6 +77,7 @@ public class SecurityConfig {
         return http.build();
     }
 
+    /** CORS 配置以独立 Bean 定义并注入，禁止调用时传入 null 等占位参数 */
     @Bean
     public CorsConfigurationSource corsConfigurationSource(
             @Value("${app.cors.allowed-origins:http://localhost:5173}") String allowedOrigins) {

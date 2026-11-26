@@ -5,10 +5,10 @@ const badgeVariants = cva('inline-flex items-center gap-1 rounded-control px-2 p
   variants: {
     variant: {
       default: 'border border-border bg-surface text-text-secondary',
-      brand: 'bg-brand-subtle text-brand',
-      success: 'bg-success-subtle text-success',
-      warning: 'bg-warning-subtle text-warning',
-      danger: 'bg-danger-subtle text-danger',
+      brand: 'bg-brand-subtle text-brand-foreground',
+      success: 'bg-success-subtle text-success-foreground',
+      warning: 'bg-warning-subtle text-warning-foreground',
+      danger: 'bg-danger-subtle text-danger-foreground',
       muted: 'bg-surface-hover text-text-muted',
     },
   },

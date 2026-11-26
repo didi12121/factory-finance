@@ -21,12 +21,18 @@
 
   --color-success: #09825d;
   --color-success-subtle: #e8f5ee;
+  /* 语义 foreground Token：文字/图标专用前景色，保证 WCAG AA 4.5:1 对比度 */
+  --color-success-foreground: #076b4d;
 
   --color-warning: #b76e00;
   --color-warning-subtle: #fff4d6;
+  --color-warning-foreground: #8a5400;
 
   --color-danger: #cd3d64;
   --color-danger-subtle: #fce8ef;
+  --color-danger-foreground: #b02a4d;
+
+  --color-brand-foreground: #4f46e5;
 
   /* ---- Typography Tokens ---- */
   --font-sans: 'Inter Variable', 'Noto Sans SC', -apple-system, 'Segoe UI',

@@ -34,13 +34,16 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
-      SERVER_PORT: ${SERVER_PORT:-8080}
+      # 容器内部端口固定 8080，不随宿主机映射端口变化
+      SERVER_PORT: 8080
       DB_URL: ${DB_URL:-jdbc:mysql://mysql:3306/factory_finance?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8&allowPublicKeyRetrieval=true}
       DB_USERNAME: ${DB_USERNAME:-factory}
       DB_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD in .env}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
     ports:
-      - "127.0.0.1:${SERVER_PORT:-8080}:8080"
+      # 宿主机映射端口可通过 BACKEND_PORT 配置；容器内部固定 8080
+      # （Nginx 代理与健康检查统一使用容器网络内 backend:8080）
+      - "127.0.0.1:${BACKEND_PORT:-8080}:8080"
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8080/actuator/health || exit 1"]
       interval: 15s

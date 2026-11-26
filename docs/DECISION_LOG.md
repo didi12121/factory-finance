@@ -21,6 +21,16 @@
 | 2026-11-26 | shadcn/vue 组件采用 **reka-ui + tailwind-merge 3.7.1 + class-variance-authority 0.7.1** 按 shadcn/vue 规范**本地化实现**（无 CLI 生成） | shadcn/vue 官方约定的组合方式；CLI 生成会引入未锁定依赖与网络安装步骤，故手工本地化实现并锁定版本 | `components/ui/*` 全部为仓库内源码，可审计、可修改；依赖树无隐式新增 | 已确认 |
 | 2026-11-26 | MyBatis-Plus 分页/防全表攻击拦截器依赖 **`mybatis-plus-jsqlparser` 3.5.18**（显式引入） | **依赖事实**：MyBatis-Plus 3.5.9+ 将 `PaginationInnerInterceptor`/`BlockAttackInnerInterceptor` 从 `mybatis-plus-extension` 拆分至 `mybatis-plus-jsqlparser` 独立模块，缺失时编译报"找不到符号" | `backend/pom.xml` 增加该构件（版本与 MyBatis-Plus 主版本一致 3.5.18）；`MybatisPlusConfig` 不变 | 已确认（依赖事实） |
 | 2026-11-26 | Testcontainers 集成测试采用 **`@ServiceConnection` + `@Bean` 容器单例**（`AbstractIntegrationTest.TestcontainersConfiguration`） | 朴素的"基类 `@Container` 静态容器"在多测试类共享 Spring 缓存上下文时，会因每个测试类重建容器、旧连接池指向已停止容器而失败（连接被拒） | MySQL 容器随应用上下文生命周期启动/停止，跨测试类共享；`mvn verify` 稳定通过 | 已确认 |
+| 2026-11-27 | **语义 foreground Token**（`--color-brand/success/warning/danger-foreground`）用于状态与品牌文字 | 实测对比度：状态色文字在 subtle 背景上 3.65–4.29:1，低于 WCAG AA 4.5:1；新增加深前景色（5.38–6.29:1）达标 | 品牌主色 `--color-brand` #635bff 保留（按钮/图形）；状态文字改用 foreground Token；对比度表更新于 `DESIGN_SYSTEM.md` 第 5 节 | 已确认 |
+| 2026-11-27 | `cn()` 使用 **extendTailwindMerge** 注册自定义字号/颜色 Token 类组 | tailwind-merge 默认无法区分自定义 `text-metric`（字号）与 `text-text-primary`（颜色），会错误互删导致 FinancialMetric 字号失效 | `utils/cn.ts` 显式声明类组并以单测固定合并行为 | 已确认 |
+| 2026-11-27 | 金额层职责分离：`decimal.ts` 中间精确运算（含 **compareAmounts** BigInt 精确比较）/ `money.ts` 业务金额校验（DECIMAL(18,2)、严格千分位） | 整改要求：严格千分位校验（禁止删逗号接受非法输入）、运算与业务校验分离、非法输入不得提交旧金额 | `AmountInput` 契约：空值/必填/负数/输入中间态/失焦/提交校验（组件头注释）；测试覆盖边界与提交场景 | 已确认 |
+| 2026-11-27 | DataTable 金额列排序使用 **`amountSortingFn`（compareAmounts）**；表头输出 `aria-sort`、支持键盘排序 | 整改要求：金额排序禁用 Number 排序误差；可访问性要求键盘可触发排序 | `components/shared/tableSorting.ts`；数据刷新越界页码自动钳制 | 已确认 |
+| 2026-11-27 | **Maven Wrapper 3.9.11**（`backend/mvnw(.cmd)`）+ 脚本去绝对路径（JAVA_HOME/PATH 探测） | 工程可移植性：禁止通用脚本硬编码开发机路径；Linux/macOS 提供 `.sh` 脚本 | `scripts/dev-backend.*`、`scripts/run-tests.*` 跨平台可用 | 已确认 |
+| 2026-11-27 | Compose 端口策略：**容器内部固定 8080**，宿主机映射用 `BACKEND_PORT` | 整改要求：Nginx、健康检查与 Compose 网络内部端口一致 | `docker-compose.yml` / `.env.example` | 已确认 |
+| 2026-11-27 | Node 版本要求统一为 **`^22.22.2 \|\| >=24.15.0`**（`engines` + `.nvmrc` 24.15.0），jsdom 固定 30.1.3 | jsdom 系（30/31 同）声明 engine ≥24.15，本机 24.14 产生 EBADENGINE 警告；声明 engines + CI 使用 Node 24 使版本要求统一 | 测试在本机 24.14（警告但全绿）与捆绑 Node 24.21 下验证 | 已确认（已知警告） |
+| 2026-11-27 | **Flyway `baseline-on-migrate` 默认关闭** | 整改要求：禁止隐式基线与破坏性初始化；已有非空 schema 须人工审核迁移历史 | `application.yml`；V1 迁移保持注释-only 基线 | 已确认 |
+| 2026-11-27 | JWT 安全基线：**固定 HS256**、密钥 **≥32 字节**、**保留声明不可被附加 claims 覆盖**；非 dev/test 环境禁止占位 Secret（启动即失败） | 整改要求：明确算法与密钥策略、保留声明保护、占位 Secret 治理 | `JwtService`（保留声明过滤 + 显式 `Jwts.SIG.HS256`）、`SecurityStartupValidator`；Trace ID 外部输入限 `^[A-Za-z0-9_-]{8,64}$` | 已确认 |
+| 2026-11-27 | SecurityConfig **CorsConfigurationSource 以独立 Bean 注入** | 整改要求：禁止调用时传入 null 占位参数 | `SecurityConfig` 构造注入，Bean 方法由 `@Value` 提供允许来源 | 已确认 |
 
 ## 记录规则
 

@@ -68,6 +68,31 @@ test.describe('Design System Showcase', () => {
     await expect(page.getByText('0.00').first()).toBeVisible()
   })
 
+  test('财务核心数字 computed font-size 为 28px / 32px', async ({ page }) => {
+    const metricSize = await page
+      .locator('[data-testid="financial-metric"] .text-metric')
+      .first()
+      .evaluate((el) => getComputedStyle(el).fontSize)
+    expect(metricSize).toBe('28px')
+
+    const metricLgSize = await page
+      .locator('.text-metric-lg')
+      .first()
+      .evaluate((el) => getComputedStyle(el).fontSize)
+    expect(metricLgSize).toBe('32px')
+  })
+
+  test('金额列右对齐且使用等宽数字', async ({ page }) => {
+    const amountCell = page.locator('[data-testid="data-table"] tbody tr').first().locator('td').nth(3)
+    const cellAlign = await amountCell.evaluate((el) => getComputedStyle(el).textAlign)
+    expect(cellAlign).toBe('right')
+
+    // 等宽数字作用于金额文本节点（MoneyText）
+    const amountText = amountCell.locator('.amount').first()
+    const fontVariantNumeric = await amountText.evaluate((el) => getComputedStyle(el).fontVariantNumeric)
+    expect(fontVariantNumeric).toContain('tabular-nums')
+  })
+
   test('页面无非预期横向溢出', async ({ page }) => {
     const overflow = await page.evaluate(
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth,

@@ -4,14 +4,14 @@ import { fileURLToPath } from 'node:url'
 
 import { expect, test, type Page } from '@playwright/test'
 
-const outputDir = fileURLToPath(new URL('../../artifacts/screenshots/phase-0.1/', import.meta.url))
+const outputDir = fileURLToPath(new URL('../../artifacts/screenshots/phase-0.1.1/', import.meta.url))
 
 async function settle(page: Page): Promise<void> {
   await page.evaluate(() => document.fonts.ready)
   await page.waitForTimeout(200)
 }
 
-test.describe('Phase 0.1 截图（真实浏览器）', () => {
+test.describe('Phase 0.1.1 截图（真实浏览器）', () => {
   test.beforeAll(() => {
     mkdirSync(outputDir, { recursive: true })
   })
@@ -48,6 +48,35 @@ test.describe('Phase 0.1 截图（真实浏览器）', () => {
     const table = page.locator('[data-testid="data-table"]')
     await table.scrollIntoViewIfNeeded()
     await table.screenshot({ path: path.join(outputDir, 'data-table.png') })
+  })
+
+  test('生成 DataTable 空数据状态截图', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/dev/design-system')
+    await settle(page)
+    await page.getByPlaceholder('搜索单据编号或客户…').fill('不存在的单据')
+    await expect(page.getByText('暂无符合条件的单据')).toBeVisible()
+    const table = page.locator('[data-testid="data-table"]')
+    await table.scrollIntoViewIfNeeded()
+    await table.screenshot({ path: path.join(outputDir, 'data-table-empty.png') })
+  })
+
+  test('生成 FinancialMetric 截图', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/dev/design-system')
+    await settle(page)
+    const metric = page.locator('[data-testid="financial-metric"]')
+    await metric.scrollIntoViewIfNeeded()
+    await metric.screenshot({ path: path.join(outputDir, 'financial-metric.png') })
+  })
+
+  test('生成 FinancialStatus 截图', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/dev/design-system')
+    await settle(page)
+    const status = page.locator('[data-testid="financial-status"]')
+    await status.scrollIntoViewIfNeeded()
+    await status.screenshot({ path: path.join(outputDir, 'financial-status.png') })
   })
 
   test('生成 Dialog 打开状态截图', async ({ page }) => {

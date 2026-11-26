@@ -25,12 +25,18 @@
 
   --color-success: #09825d;
   --color-success-subtle: #e8f5ee;
+  /* 语义 foreground Token：文字/图标专用前景色，保证 WCAG AA 4.5:1 对比度 */
+  --color-success-foreground: #076b4d;
 
   --color-warning: #b76e00;
   --color-warning-subtle: #fff4d6;
+  --color-warning-foreground: #8a5400;
 
   --color-danger: #cd3d64;
   --color-danger-subtle: #fce8ef;
+  --color-danger-foreground: #b02a4d;
+
+  --color-brand-foreground: #4f46e5;
 }
 ```
 
@@ -111,29 +117,36 @@ Base spacing unit:   4px
 3. 等宽数字：`font-variant-numeric: tabular-nums;`。
 4. 正确处理边界值：`0.00`、`1,850.39`、`-1,850.39`、`1,000,000.00`（负数保留符号，不擅自加括号或红色以外的语义）。
 5. 展示格式化只作用于显示层；计算与传输一律使用十进制字符串/`BigDecimal`（见 `ACCOUNTING_RULES.md` 第 2 节），**禁止 JS Number 参与财务运算**。
-6. `AmountInput` 验证金额格式与精度，拒绝科学计数法与隐式浮点舍入。
+6. `AmountInput` 验证金额格式与精度，拒绝科学计数法与隐式浮点舍入；业务金额合法性为 DECIMAL(18,2)（整数位最多 16 位、小数位最多 2 位），千分位仅接受合法分组（每组 3 位），非法输入不得导致表单提交旧金额（契约详见 `AmountInput.vue` 头注释）。
+7. 金额比较与精确运算使用 `utils/decimal.ts`（BigInt 定点）：`compareAmounts(a, b)` 精确比较，禁止 `Number`/`parseFloat`/浮点运算参与比较与计算。
 
 ## 5. 可访问性对比度
 
 要求：**正文、按钮、状态文字必须通过可访问性对比度检查**（目标 WCAG 2.1 AA：正文 ≥ 4.5:1，大字号/图形 ≥ 3:1）。
 
-下表为基于 Token 色值的近似对比度（sRGB 相对亮度计算，四舍五入；**最终数值以对比度工具复核为准**）：
+下表为基于 Token 色值的实际对比度（sRGB 相对亮度标准公式计算，2026-11-27 复核）：
 
-| 组合 | 近似对比度 | 结论 |
+| 组合 | 对比度 | 结论 |
 | --- | --- | --- |
-| `text-primary` #1a1f36 / `surface` #ffffff | ≈ 16.2:1 | 通过 |
-| `text-secondary` #425466 / `surface` #ffffff | ≈ 7.8:1 | 通过 |
-| `text-muted` #697386 / `surface` #ffffff | ≈ 4.8:1 | 通过（贴近 4.5 下限，禁止用于更小字号或更浅背景） |
-| 白字 / `brand` #635bff（主按钮） | ≈ 4.7:1 | 通过（按钮文字 ≥ 14px/600） |
-| 白字 / `brand-hover` #5147e5 | ≈ 6.2:1 | 通过 |
-| `success` #09825d / `success-subtle` #e8f5ee | ≈ 4.3:1 | **临界**：小字号状态文字需使用更深的语义 Token 或加深底色 |
+| `text-primary` #1a1f36 / `surface` #ffffff | 16.24:1 | 通过 |
+| `text-primary` / `background` #f7f9fc | 15.40:1 | 通过 |
+| `text-secondary` #425466 / `surface` | 7.80:1 | 通过 |
+| `text-muted` #697386 / `surface` | 4.78:1 | 通过（贴近 4.5 下限，禁止用于更小字号或更浅背景） |
+| `text-muted` / `background` | 4.53:1 | 通过 |
+| 白字 / `brand` #635bff（主按钮） | 4.70:1 | 通过（按钮文字 ≥ 14px/600） |
+| 白字 / `brand-hover` #5147e5 | 6.21:1 | 通过 |
+| `brand-foreground` #4f46e5 / `surface` | 6.29:1 | 通过 |
+| `brand-foreground` / `brand-subtle` #eeebff | 5.38:1 | 通过 |
+| `success-foreground` #076b4d / `success-subtle` #e8f5ee | 5.82:1 | 通过 |
+| `warning-foreground` #8a5400 / `warning-subtle` #fff4d6 | 5.72:1 | 通过 |
+| `danger-foreground` #b02a4d / `danger-subtle` #fce8ef | 5.46:1 | 通过 |
 
-处理原则：
+处理原则（Phase 0.1.1 已执行）：
 
-- 对于对比度不足的组合，**定义可访问性专用语义 Token**（示例方向：`--color-success-text`、`--color-warning-text`、`--color-danger-text`，值取对应状态色的加深变体），并记录于本文档。
-- 语义 Token 的具体色值：**待架构师/设计确认**，确认前状态文字优先使用纯色 `success/warning/danger` 放在白色/中性背景上。
+- **状态/品牌文字统一使用语义 foreground Token**（`--color-*-foreground`），不直接用品牌主色/状态色作为小字号文字色；品牌主色 `--color-brand` #635bff 保留不变（按钮底色、图形元素继续使用）。
+- 纯色 `brand/success/warning/danger` 作为文字色仅限 ≥ 3:1 的大字号/图形场景，或白色/中性背景上的通过组合。
 - 状态信息**不能只通过颜色区分**，必须同时有文字（`FinancialStatus` 组件强制）。
-- 每次调整 Token 色值后必须重新执行对比度检查并更新上表。
+- 每次调整 Token 色值后必须重新执行对比度检查并更新上表（计算脚本：相对亮度标准公式）。
 
 ## 6. 组件清单（三层）
 
@@ -152,14 +165,14 @@ PageHeader、PageToolbar、DataTable、TablePagination、SearchInput、FilterBar
 | 组件 | 要求 |
 | --- | --- |
 | MoneyText | 按第 4 节金额展示规范输出；处理 `0.00` / `1,850.39` / `-1,850.39` / `1,000,000.00` |
-| AmountInput | 验证金额格式及精度；拒绝科学计数法与隐式浮点舍入 |
+| AmountInput | 验证金额格式及精度（DECIMAL(18,2)）；拒绝科学计数法、非法千分位与隐式浮点舍入；非法输入不得提交旧金额 |
 | DocumentNumber | 业务单据编号展示（等宽、可复制、不换行） |
-| FinancialStatus | 文字 + 语义色表达状态，禁止仅靠颜色区分 |
-| FinancialMetric | 财务核心数字指标卡（28–32px/600，右对齐，tabular-nums） |
+| FinancialStatus | 文字 + 语义色（foreground Token）表达状态，禁止仅靠颜色区分 |
+| FinancialMetric | 财务核心数字指标卡（28px `text-metric` / 32px `text-metric-lg`，600，tabular-nums）；实际渲染字号由 Playwright computed style 断言验证 |
 
 ### 6.4 DataTable 基线能力
 
-列定义、排序、分页、空数据、加载状态，并预留服务端分页能力。
+列定义、排序（金额列使用 `compareAmounts` 精确比较）、分页、空数据、加载状态，并预留服务端分页能力（`manualPagination`/`manualSorting` 契约见 `DataTable.vue` 头注释）。表头与内容对齐一致（左对齐显式 `text-left`，金额列右对齐 + tabular-nums）；排序支持键盘触发并输出 `aria-sort`；数据刷新导致页码越界时自动钳制。
 
 ## 7. Design System Showcase
 

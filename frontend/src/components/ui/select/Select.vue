@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, useAttrs } from 'vue'
 
 import { Check, ChevronDown } from '@lucide/vue'
 import {
@@ -17,6 +17,8 @@ import {
 
 import { cn } from '@/utils/cn'
 
+defineOptions({ inheritAttrs: false })
+
 const props = withDefaults(
   defineProps<{
     modelValue?: string
@@ -30,11 +32,15 @@ const props = withDefaults(
 
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 
+// class / id / aria-* 等外部属性统一转发到实际交互元素 SelectTrigger
+const attrs = useAttrs()
+
 const triggerClasses = computed(() =>
   cn(
     'flex h-control w-full items-center justify-between gap-2 rounded-control border bg-surface px-3 text-body',
     'placeholder:text-text-muted disabled:cursor-not-allowed disabled:opacity-50',
     props.invalid ? 'border-danger' : 'border-border',
+    attrs.class as string,
   ),
 )
 
@@ -45,7 +51,11 @@ function onChange(value: string | number): void {
 
 <template>
   <SelectRoot :model-value="props.modelValue" :disabled="props.disabled" @update:model-value="onChange">
-    <SelectTrigger :class="triggerClasses" :aria-invalid="props.invalid ? 'true' : undefined">
+    <SelectTrigger
+      v-bind="attrs"
+      :class="triggerClasses"
+      :aria-invalid="props.invalid ? 'true' : undefined"
+    >
       <SelectValue :placeholder="props.placeholder" />
       <SelectIcon>
         <ChevronDown class="size-4 text-text-muted" />
@@ -68,7 +78,7 @@ function onChange(value: string | number): void {
           >
             <SelectItemText>{{ option.label }}</SelectItemText>
             <SelectItemIndicator>
-              <Check class="size-4 text-brand" />
+              <Check class="size-4 text-brand-foreground" />
             </SelectItemIndicator>
           </SelectItem>
         </SelectViewport>

@@ -18,13 +18,13 @@ const props = withDefaults(
 const kindClass = computed(() => {
   switch (props.kind) {
     case 'brand':
-      return 'bg-brand-subtle text-brand'
+      return 'bg-brand-subtle text-brand-foreground'
     case 'success':
-      return 'bg-success-subtle text-success'
+      return 'bg-success-subtle text-success-foreground'
     case 'warning':
-      return 'bg-warning-subtle text-warning'
+      return 'bg-warning-subtle text-warning-foreground'
     case 'danger':
-      return 'bg-danger-subtle text-danger'
+      return 'bg-danger-subtle text-danger-foreground'
     case 'muted':
       return 'bg-surface-hover text-text-muted'
     default:

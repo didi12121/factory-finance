@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, h, ref } from 'vue'
 
 import { createColumnHelper, type ColumnDef } from '@tanstack/vue-table'
 
@@ -28,7 +28,7 @@ import FormField from '@/components/shared/FormField.vue'
 import LoadingState from '@/components/shared/LoadingState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import SearchInput from '@/components/shared/SearchInput.vue'
-import { formatAmount } from '@/utils/money'
+import { amountSortingFn } from '@/components/shared/tableSorting'
 
 const toast = useToast()
 
@@ -36,9 +36,14 @@ const dialogOpen = ref(false)
 const sheetOpen = ref(false)
 const activeTab = ref('overview')
 const searchText = ref('')
+const demoName = ref('')
+const demoSearch = ref('')
 const checked = ref(true)
 const currency = ref('cny')
 const amountValue = ref('1850.39')
+
+/** 单据详情 / 确认删除与列表共用的同一数据源选中行 */
+const selectedRow = ref<TestRow | null>(null)
 
 const currencyOptions = [
   { label: '人民币 CNY', value: 'cny' },
@@ -56,38 +61,104 @@ interface TestRow {
   date: string
 }
 
+function statusKind(status: string): 'success' | 'brand' | 'warning' {
+  switch (status) {
+    case '已结清':
+      return 'success'
+    case '部分回款':
+      return 'brand'
+    default:
+      return 'warning'
+  }
+}
+
+const testRows: TestRow[] = Array.from({ length: 23 }, (_, index) => {
+  // 前 20 条常规金额；最后 3 条覆盖负数与不同小数位（排序测试用）
+  const amount =
+    index === 20 ? '-100.00' : index === 21 ? '0.01' : index === 22 ? '1234.5' : (1000 + index * 137.5).toFixed(2)
+  return {
+    id: index + 1,
+    docNo: `XS-2026-${String(index + 1).padStart(4, '0')}`,
+    customer: `示例客户 ${String.fromCharCode(65 + (index % 8))}`,
+    amount,
+    status: index % 3 === 0 ? '待回款' : index % 3 === 1 ? '部分回款' : '已结清',
+    date: `2026-11-${String((index % 28) + 1).padStart(2, '0')}`,
+  }
+})
+
+/** 搜索/筛选实际作用于数据 */
+const filteredRows = computed(() => {
+  const keyword = searchText.value.trim().toLowerCase()
+  if (keyword === '') {
+    return testRows
+  }
+  return testRows.filter(
+    (row) => row.docNo.toLowerCase().includes(keyword) || row.customer.toLowerCase().includes(keyword),
+  )
+})
+
+function resetFilters(): void {
+  searchText.value = ''
+}
+
+function openDetail(row: TestRow): void {
+  selectedRow.value = row
+  sheetOpen.value = true
+}
+
+function openDelete(row: TestRow): void {
+  selectedRow.value = row
+  dialogOpen.value = true
+}
+
 const columnHelper = createColumnHelper<TestRow>()
 const columns: ColumnDef<TestRow, string>[] = [
   columnHelper.accessor('docNo', {
     header: '单据编号',
-    cell: (info) => info.getValue(),
+    cell: (info) => h(DocumentNumber, { value: info.getValue() }),
   }),
   columnHelper.accessor('customer', { header: '客户' }),
   columnHelper.accessor('date', { header: '业务日期' }),
   columnHelper.accessor('amount', {
     header: '金额',
     meta: { align: 'right' },
-    cell: (info) => formatAmount(info.getValue()),
+    sortingFn: amountSortingFn,
+    cell: (info) => h(MoneyText, { value: info.getValue(), size: 'table' }),
   }),
   columnHelper.accessor('status', {
     header: '状态',
-    cell: (info) => info.getValue(),
+    cell: (info) => h(FinancialStatus, { status: info.getValue(), kind: statusKind(info.getValue()) }),
   }),
+  {
+    id: 'actions',
+    header: '操作',
+    meta: { align: 'right' },
+    cell: (info) =>
+      h('div', { class: 'flex items-center justify-end gap-1' }, [
+        h(
+          Button,
+          { variant: 'ghost', size: 'sm', onClick: () => openDetail(info.row.original) },
+          () => '详情',
+        ),
+        h(
+          Button,
+          {
+            variant: 'ghost',
+            size: 'sm',
+            class: 'text-danger-foreground',
+            onClick: () => openDelete(info.row.original),
+          },
+          () => '删除',
+        ),
+      ]),
+  },
 ]
-
-const testRows: TestRow[] = Array.from({ length: 23 }, (_, index) => ({
-  id: index + 1,
-  docNo: `XS-2026-${String(index + 1).padStart(4, '0')}`,
-  customer: `示例客户 ${String.fromCharCode(65 + (index % 8))}`,
-  amount: (1000 + index * 137.5).toFixed(2),
-  status: index % 3 === 0 ? '待回款' : index % 3 === 1 ? '部分回款' : '已结清',
-  date: `2026-11-${String((index % 28) + 1).padStart(2, '0')}`,
-}))
 
 const colorTokens = [
   { name: '--color-brand', value: '#635bff' },
   { name: '--color-brand-hover', value: '#5147e5' },
   { name: '--color-brand-subtle', value: '#eeebff' },
+  { name: '--color-brand-foreground', value: '#4f46e5' },
   { name: '--color-text-primary', value: '#1a1f36' },
   { name: '--color-text-secondary', value: '#425466' },
   { name: '--color-text-muted', value: '#697386' },
@@ -95,8 +166,11 @@ const colorTokens = [
   { name: '--color-surface', value: '#ffffff' },
   { name: '--color-border', value: '#e3e8ee' },
   { name: '--color-success', value: '#09825d' },
+  { name: '--color-success-foreground', value: '#076b4d' },
   { name: '--color-warning', value: '#b76e00' },
+  { name: '--color-warning-foreground', value: '#8a5400' },
   { name: '--color-danger', value: '#cd3d64' },
+  { name: '--color-danger-foreground', value: '#b02a4d' },
 ]
 
 const moneySamples = ['0.00', '1,850.39', '-1,850.39', '1,000,000.00']
@@ -162,16 +236,16 @@ const moneySamples = ['0.00', '1,850.39', '-1,850.39', '1,000,000.00']
       <div class="grid gap-6 rounded-panel border border-border bg-surface p-6 lg:grid-cols-2">
         <div class="flex flex-col gap-4">
           <FormField id="demo-name" label="客户名称" hint="基础输入控件示例">
-            <Input id="demo-name" v-model="searchText" placeholder="请输入客户名称" />
+            <Input id="demo-name" v-model="demoName" placeholder="请输入客户名称" />
           </FormField>
           <FormField id="demo-amount" label="收款金额" hint="金额输入：最多两位小数，禁止科学计数法">
             <AmountInput id="demo-amount" v-model="amountValue" />
           </FormField>
-          <SearchInput v-model="searchText" placeholder="搜索测试数据…" />
+          <SearchInput v-model="demoSearch" placeholder="搜索测试数据…" />
         </div>
         <div class="flex flex-col gap-4">
           <FormField id="demo-select" label="结算币种">
-            <Select v-model="currency" :options="currencyOptions" />
+            <Select id="demo-select" v-model="currency" :options="currencyOptions" />
           </FormField>
           <Checkbox v-model="checked" label="启用该测试选项" />
         </div>
@@ -207,14 +281,20 @@ const moneySamples = ['0.00', '1,850.39', '-1,850.39', '1,000,000.00']
     <section id="section-data-table" class="flex flex-col gap-4">
       <div class="flex items-center justify-between gap-3">
         <h2 class="text-section-title font-semibold text-text-primary">DataTable</h2>
-        <Badge variant="muted">虚构测试数据 · 23 条</Badge>
+        <Badge variant="muted">虚构测试数据 · 共 {{ testRows.length }} 条</Badge>
       </div>
       <FilterBar>
-        <SearchInput v-model="searchText" placeholder="搜索单据编号…" />
-        <Button variant="secondary" size="sm">重置筛选</Button>
+        <SearchInput v-model="searchText" placeholder="搜索单据编号或客户…" />
+        <Button variant="secondary" size="sm" @click="resetFilters">重置筛选</Button>
       </FilterBar>
       <div data-testid="data-table">
-        <DataTable :columns="columns" :data="testRows" :page-size="10" :page-size-options="[10, 20, 50]" />
+        <DataTable
+          :columns="columns"
+          :data="filteredRows"
+          :page-size="10"
+          :page-size-options="[10, 20, 50]"
+          empty-text="暂无符合条件的单据"
+        />
       </div>
     </section>
 
@@ -222,8 +302,8 @@ const moneySamples = ['0.00', '1,850.39', '-1,850.39', '1,000,000.00']
     <section id="section-dialog" class="flex flex-col gap-4">
       <h2 class="text-section-title font-semibold text-text-primary">Dialog / DetailSheet</h2>
       <div class="flex flex-wrap gap-3 rounded-panel border border-border bg-surface p-4">
-        <Button variant="primary" data-testid="dialog-open" @click="dialogOpen = true">打开 Dialog</Button>
-        <Button variant="secondary" data-testid="sheet-open" @click="sheetOpen = true">打开 DetailSheet</Button>
+        <Button variant="primary" data-testid="dialog-open" @click="openDelete(testRows[0]!)">打开 Dialog</Button>
+        <Button variant="secondary" data-testid="sheet-open" @click="openDetail(testRows[0]!)">打开 DetailSheet</Button>
         <Button variant="secondary" @click="toast.success('保存成功', '这是一条测试通知（虚构数据）')">显示 Toast</Button>
       </div>
 
@@ -232,8 +312,9 @@ const moneySamples = ['0.00', '1,850.39', '-1,850.39', '1,000,000.00']
         title="确认删除测试单据？"
         description="该操作仅作用于展示页中的虚构测试数据。"
       >
-        <p class="text-body text-text-secondary">
-          单据 <DocumentNumber value="XS-2026-0001" />（示例客户 A，金额 1,337.50）将被删除。
+        <p v-if="selectedRow" class="text-body text-text-secondary">
+          单据 <DocumentNumber :value="selectedRow.docNo" />（{{ selectedRow.customer }}，金额
+          {{ selectedRow.amount }}）将被删除。
         </p>
         <template #footer>
           <Button variant="secondary" @click="dialogOpen = false">取消</Button>
@@ -242,25 +323,30 @@ const moneySamples = ['0.00', '1,850.39', '-1,850.39', '1,000,000.00']
       </Dialog>
 
       <DetailSheet v-model:open="sheetOpen" title="单据详情" description="虚构测试数据">
-        <dl class="flex flex-col gap-4">
+        <dl v-if="selectedRow" class="flex flex-col gap-4">
           <div class="flex items-center justify-between gap-4">
             <dt class="text-caption text-text-muted">单据编号</dt>
-            <dd><DocumentNumber value="XS-2026-0001" /></dd>
+            <dd><DocumentNumber :value="selectedRow.docNo" /></dd>
           </div>
           <Separator />
           <div class="flex items-center justify-between gap-4">
             <dt class="text-caption text-text-muted">客户</dt>
-            <dd class="text-body text-text-primary">示例客户 A</dd>
+            <dd class="text-body text-text-primary">{{ selectedRow.customer }}</dd>
+          </div>
+          <Separator />
+          <div class="flex items-center justify-between gap-4">
+            <dt class="text-caption text-text-muted">业务日期</dt>
+            <dd class="tabular text-body text-text-primary">{{ selectedRow.date }}</dd>
           </div>
           <Separator />
           <div class="flex items-center justify-between gap-4">
             <dt class="text-caption text-text-muted">金额</dt>
-            <dd><MoneyText value="1337.50" /></dd>
+            <dd><MoneyText :value="selectedRow.amount" /></dd>
           </div>
           <Separator />
           <div class="flex items-center justify-between gap-4">
             <dt class="text-caption text-text-muted">状态</dt>
-            <dd><FinancialStatus status="待回款" kind="warning" /></dd>
+            <dd><FinancialStatus :status="selectedRow.status" :kind="statusKind(selectedRow.status)" /></dd>
           </div>
         </dl>
         <template #footer>
@@ -272,18 +358,22 @@ const moneySamples = ['0.00', '1,850.39', '-1,850.39', '1,000,000.00']
     <!-- FinancialMetric / MoneyText -->
     <section id="section-finance" class="flex flex-col gap-4">
       <h2 class="text-section-title font-semibold text-text-primary">FinancialMetric / MoneyText</h2>
-      <div class="flex flex-wrap gap-8 rounded-panel border border-border bg-surface p-6">
+      <div class="flex flex-wrap gap-8 rounded-panel border border-border bg-surface p-6" data-testid="financial-metric">
         <FinancialMetric label="本月回款（测试数据）" value="382650.00" caption="2026-11-01 至 2026-11-26" />
         <FinancialMetric label="应收账款余额（测试数据）" value="1258300.75" />
         <FinancialMetric label="银行存款余额（测试数据）" value="-1850.39" caption="示例负数展示" />
       </div>
 
       <div class="rounded-panel border border-border bg-surface p-6">
-        <p class="mb-3 text-caption text-text-muted">MoneyText 格式化样例</p>
+        <p class="mb-3 text-caption text-text-muted">MoneyText 格式化样例（28px metric / 32px metric-lg）</p>
         <div class="flex flex-wrap items-center gap-x-8 gap-y-2">
           <div v-for="sample in moneySamples" :key="sample" class="flex items-baseline gap-2">
             <span class="text-caption text-text-muted">{{ sample }}</span>
             <MoneyText :value="sample.replace(/,/g, '')" size="metric" />
+          </div>
+          <div class="flex items-baseline gap-2">
+            <span class="text-caption text-text-muted">32px 样例</span>
+            <MoneyText value="128800.00" size="metric-lg" />
           </div>
         </div>
       </div>
@@ -292,7 +382,7 @@ const moneySamples = ['0.00', '1,850.39', '-1,850.39', '1,000,000.00']
     <!-- FinancialStatus -->
     <section id="section-status" class="flex flex-col gap-4">
       <h2 class="text-section-title font-semibold text-text-primary">FinancialStatus</h2>
-      <div class="flex flex-wrap items-center gap-3 rounded-panel border border-border bg-surface p-4">
+      <div class="flex flex-wrap items-center gap-3 rounded-panel border border-border bg-surface p-4" data-testid="financial-status">
         <FinancialStatus status="已结清" kind="success" />
         <FinancialStatus status="部分回款" kind="brand" />
         <FinancialStatus status="待回款" kind="warning" />
