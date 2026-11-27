@@ -38,6 +38,11 @@
 | 2026-11-27 | Design System 展示页**构建期隔离**（`devOnlyView()` 与 prototypeView 同机制，QA F-001 P1 整改） | QA 产物扫描发现 DesignSystemView chunk（含虚构测试数据）进入生产 dist | 生产构建下该 chunk 被 Rollup 消除，dist 演示特征字符串 0 命中 | 已确认 |
 | 2026-11-27 | **Prototype Contract V1.1**：契约目录新增 `labels.ts`（业务类型标准标签 + 图表短标签显式别名），dashboard/treasury 双份标签映射收敛为单一来源（QA F-002 整改） | 展示元数据双份维护且文案不一致；契约变更经主 Agent（裁决人）批准并回写两消费方 | 版本 V1 → V1.1（仅新增展示元数据，类型/接口/导航契约不变） | 已确认 |
 | 2026-11-27 | FinancialMetric 指标区**左对齐基线**（MoneyText `align="left"`），表格金额保持右对齐（QA F-003 整改：文档同步） | Phase 0.2 评审要求标签/金额统一左基线（Stripe 指标区层级）；DESIGN_SYSTEM.md §4 原「指标卡右对齐」表述已同步更新 | MoneyText 新增 align 属性（默认 right 不变） | 已确认 |
+| 2026-11-27 | **PROTOTYPE_CONTRACT V1.2**：ReceivableSummary 新增 `integrity` 诊断字段（超额核销显式暴露，禁止静默钳制） | Phase 0.3 派生数据完整性整改；预授权契约变更，唯一实现人 Agent A | 派生层保留原始应收/真实核销合计 + 异常标记；写时校验仍为第一道防线 | 已确认 |
+| 2026-11-27 | 环境隔离开关切换为**显式允许清单**（`app/envAllowlist.ts`，仅 development/test 启用演示；production/staging/uat/自定义 mode 默认禁用） | 旧 `MODE !== 'production'` 会误放行 staging/uat；default-deny + 双形态单一来源（运行期纯函数 + 构建期可折叠常量） | 四 mode 产物扫描 0 命中 + 浏览器路由验证 + test 模式反向对照；CI 隔离矩阵 Job 建立 | 已确认 |
+| 2026-11-27 | **A3 创建期语义裁决**：应收单允许创建未来月/未来日期（真实公历校验保留），但不计入截至 DEMO_TODAY 的已确认收入；实际收款日期 ≤ DEMO_TODAY 强制拒绝 | 阶段规范原文约束的是收入确认而非创建；主 Agent 简报过严与只读基线测试冲突，按规范校准 | 收入过滤实证（创建 2026-12 单据后本期收入不变）；Mandatory Regression 4 口径不变 | 已确认 |
+| 2026-11-27 | app-shell.test.ts 纯新增断言（父级高亮/降噪）超出 Agent C 严格清单，集成层**裁定接受** | 测试断言与 C3 交付行为对应，零删弱 | 记录为所有权例外 | 已确认 |
+| 2026-11-27 | **截图证据策略**：历史阶段截图（phase-0.1.1/0.2）冻结保护，交付截图输出切至 `phase-0.3/`；Playwright 统一 locale=zh-CN / timezone=Asia/Shanghai | 已审核证据不被集成运行覆盖；视觉基线确定性 | 截图经统一 `scrollTop=0` 采集（sticky+fullPage 伪影修复，QA 三证复核成立） | 已确认 |
 
 ## 记录规则
 

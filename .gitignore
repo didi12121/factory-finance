@@ -39,3 +39,6 @@ logs/
 
 # DSH 平台沙箱工件（非项目文件）
 .acl-recovery/
+
+test-results-visual/
+frontend/visual/

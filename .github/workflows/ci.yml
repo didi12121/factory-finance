@@ -111,3 +111,68 @@ jobs:
         run: |
           cp .env.example .env
           docker compose config --quiet
+
+  frontend-isolation:
+    name: 生产环境隔离（${{ matrix.mode }}）
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [production, staging, uat, demo-custom]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 构建（production 无 --mode）
+        run: |
+          if [ "${{ matrix.mode }}" = "production" ]; then npx vite build
+          else npx vite build --mode "${{ matrix.mode }}"; fi
+
+      - name: 产物隔离扫描（全量文件 + 多形态特征）
+        run: node scripts/verify-isolation.mjs --mode "${{ matrix.mode }}" --dist dist --json isolation-${{ matrix.mode }}.json
+
+  visual-candidate:
+    name: 视觉回归候选基线（信息模式，待批准后启用强制）
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 安装 Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: 生成本平台候选快照（不覆盖仓库内 Windows 基线）
+        run: npx playwright test -c playwright.visual.config.ts --update-snapshots
+        env:
+          E2E_PORT: '4176'
+
+      - name: 上传本平台候选快照（供跨平台对比评审）
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-candidate-snapshots-linux
+          path: frontend/e2e/visual.spec.ts-snapshots/
+          if-no-files-found: ignore

@@ -45,7 +45,11 @@ Phase 6   — AI Finance Assistant
 
 **验收要点**：原型页面覆盖核心工作流；遵守 UI 禁止事项；使用虚构测试数据；不接入真实业务逻辑。（具体范围待架构师与产品负责人确认。）
 
-## Phase 0.3 — UI Review & Visual Baseline（计划）
+## Phase 0.3 — UI Review & Visual Baseline（进行中）
+
+> **执行状态（2026-11-27）**：多 Agent 执行完成——A 财务边界 / B 环境隔离 / C UI 优化三路整改合入，
+> 独立 QA 五项强制回归与四环境隔离复核全部通过（OPEN_P0/P1=0）；候选视觉基线 CANDIDATE_BASELINE
+> 已生成（待架构师与产品负责人批准，批准前不得固化）。见 `docs/reviews/PHASE_0_3_DELIVERY_REPORT.md`。
 
 **目标**：UI 评审与视觉基线固化——原型经人工审核、修改后确定视觉回归基线。
 

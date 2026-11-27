@@ -103,6 +103,25 @@ previewReceiptAllocation / autoAllocateReceipt / validateReceiptAllocation / con
 ## 9. 版本
 
 ```text
-PROTOTYPE_CONTRACT = V1 (FROZEN)
+PROTOTYPE_CONTRACT = V1.2 (FROZEN)
 冻结提交 = 2e02acd（phase-0.2/integration）
 ```
+
+### V1.1（2026-11-27，Phase 0.2）
+
+新增 `contracts/labels.ts`：业务类型标准标签 + 图表短标签显式别名（QA F-002 整改，单一来源）。
+
+### V1.2（2026-11-27，Phase 0.3）
+
+`contracts/types.ts` —— `ReceivableSummary` 新增可选字段：
+
+```typescript
+integrity?: {
+  status: 'OK' | 'OVER_ALLOCATED'
+  overAllocatedAmount: DecimalString   // 超额核销差额（0.00 = 正常）
+}
+```
+
+语义：派生统计**禁止静默掩盖数据异常**——当有效核销合计超过原始应收时，`status='OVER_ALLOCATED'`
+并给出差额；`paidAmount` 保留真实核销合计、原始应收事实不变。该变更为 Phase 0.3 预授权变更
+（主 Agent 批准，唯一实现人 Agent A）；派生实现恒提供该字段。除本字段外 V1 冻结内容零变动。
