@@ -100,8 +100,11 @@
 
 ## 9. CI
 
-- `.github/workflows/ci.yml`：原有 4 Job（backend/frontend/e2e/compose-config）全部保留 + 新增 `frontend-isolation`（4 mode 矩阵）+ `visual-candidate`（信息模式）
-- Run 地址与状态见交付消息（最终提交触发）
+- `.github/workflows/ci.yml`：原有 4 Job（backend/frontend/e2e/compose-config）全部保留 + 新增 `frontend-isolation`（production/staging/uat/demo-custom 四 mode 矩阵）+ `visual-candidate`（continue-on-error 信息模式，上传本平台快照供对比评审）
+- **最终 CI**：Run #9（head `275cec7`）attempt 2 = **completed / success（9/9 Job）**
+  https://github.com/didi12121/factory-finance/actions/runs/45972671744
+  - attempt 1 曾 8/9（Backend 因 Maven Wrapper 发行包 wget 瞬时网络失败——无测试报告产出、代码零变更，定性环境 flake 后 rerun-failed-jobs 通过）
+  - Run #8 曾 8/9（visual.spec.ts 被主套件拾取致 Linux 平台后缀快照缺失——已按项目门控模式修正 testIgnore，主套件 134/134 复验）
 
 ## 10. Run Instructions
 
@@ -118,7 +121,9 @@ npx vite build --mode staging; node scripts/verify-isolation.mjs --mode staging
 
 ## 11. Git Status（最终）
 
-见交付消息——最终验证代码提交、合并 main 提交、工作区 clean、远程推送状态、CI 对应提交与状态。
+- **最终验证代码提交**：`275cec70740b4754ec4acdfb1063dc0982d6e2a2`（main，CI 9/9 对应此提交）
+- 集成分支 `phase-0.3/integration` → main（--no-ff 留痕）；工作区 clean；远程推送完成（快进、无 force）
+- 各 Agent 提交见第 2 节；本报告随附提交仅记录已验证提交的 Hash 与 CI 结果
 
 ## 12. Scope Verification
 
