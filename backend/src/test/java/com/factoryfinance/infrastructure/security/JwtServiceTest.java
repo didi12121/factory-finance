@@ -3,9 +3,11 @@ package com.factoryfinance.infrastructure.security;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.JwtParser;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.MissingClaimException;
 import io.jsonwebtoken.security.Keys;
+import io.jsonwebtoken.security.MacAlgorithm;
 import org.junit.jupiter.api.Test;
 
 import javax.crypto.SecretKey;
@@ -20,9 +22,17 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class JwtServiceTest {
 
+    /**
+     * 同一把 HMAC 测试密钥（≥64 字节 / 512 位，满足 RFC 7518 对 HS512 的密钥长度要求）：
+     * HS256/HS384/HS512 三个令牌均用该密钥正确签名，确保算法白名单测试的拒绝
+     * 原因只能是算法不符，而非签名或密钥问题。
+     */
+    private static final String SHARED_SECRET =
+            "factory-finance-shared-unit-test-hmac-key-at-least-64-bytes-for-hs512-0123456789";
+
     private static JwtService service(Duration ttl) {
         JwtProperties properties = new JwtProperties();
-        properties.setSecret("unit-test-secret-key-with-at-least-32-bytes!!");
+        properties.setSecret(SHARED_SECRET);
         properties.setIssuer("factory-finance");
         properties.setTtl(ttl);
         return new JwtService(properties);
@@ -94,29 +104,84 @@ class JwtServiceTest {
     }
 
     private static SecretKey hmacKey() {
-        return Keys.hmacShaKeyFor("unit-test-secret-key-with-at-least-32-bytes!!".getBytes(StandardCharsets.UTF_8));
+        return Keys.hmacShaKeyFor(SHARED_SECRET.getBytes(StandardCharsets.UTF_8));
     }
 
     private static Date inOneMinute() {
         return new Date(System.currentTimeMillis() + 60_000);
     }
 
-    @Test
-    void parse_rejects_non_hs256_algorithm() {
-        // HS512 要求密钥 ≥ 512 位（RFC 7518），使用专用长密钥构造"外来"令牌
-        SecretKey hs512Key = Keys.hmacShaKeyFor(
-                "unit-test-secret-key-extended-for-hs512-algorithm-signing-tests-0123456789"
-                        .getBytes(StandardCharsets.UTF_8));
-        String hs512Token = Jwts.builder()
+    /** 手工构造令牌：同一把共享密钥 + 指定算法正确签名，必要声明齐全 */
+    private static String tokenSignedWith(MacAlgorithm alg) {
+        return Jwts.builder()
                 .subject("user-1")
                 .issuer("factory-finance")
                 .issuedAt(new Date())
                 .expiration(inOneMinute())
-                .signWith(hs512Key, Jwts.SIG.HS512)
+                .signWith(hmacKey(), alg)
                 .compact();
+    }
+
+    @Test
+    void parse_rejects_non_hs256_algorithm() {
+        // 同一把 ≥64 字节共享 HMAC 密钥正确签名的 HS512 令牌，仅因算法白名单被拒绝
+        String hs512Token = tokenSignedWith(Jwts.SIG.HS512);
 
         JwtService service = service(Duration.ofMinutes(5));
         assertThat(service.isValid(hs512Token)).isFalse();
+        assertThatThrownBy(() -> service.parseToken(hs512Token)).isInstanceOf(JwtException.class);
+    }
+
+    @Test
+    void whitelist_accepts_hs256_token_signed_with_shared_key() {
+        String hs256Token = tokenSignedWith(Jwts.SIG.HS256);
+
+        JwtService service = service(Duration.ofMinutes(5));
+        Claims claims = service.parseToken(hs256Token);
+
+        assertThat(claims.getSubject()).isEqualTo("user-1");
+        assertThat(claims.getIssuer()).isEqualTo("factory-finance");
+        assertThat(service.isValid(hs256Token)).isTrue();
+    }
+
+    @Test
+    void whitelist_rejects_hs384_token_signed_with_shared_key() {
+        String hs384Token = tokenSignedWith(Jwts.SIG.HS384);
+
+        JwtService service = service(Duration.ofMinutes(5));
+        assertThat(service.isValid(hs384Token)).isFalse();
+        assertThatThrownBy(() -> service.parseToken(hs384Token)).isInstanceOf(JwtException.class);
+    }
+
+    @Test
+    void whitelist_rejects_hs512_token_signed_with_shared_key() {
+        String hs512Token = tokenSignedWith(Jwts.SIG.HS512);
+
+        JwtService service = service(Duration.ofMinutes(5));
+        assertThat(service.isValid(hs512Token)).isFalse();
+        assertThatThrownBy(() -> service.parseToken(hs512Token)).isInstanceOf(JwtException.class);
+    }
+
+    @Test
+    void control_parser_without_whitelist_verifies_hs384_and_hs512_signatures() {
+        // 对照解析器：不限制算法（不调用 sig()），仅以同一把共享密钥验证签名与 issuer。
+        // HS384/HS512 令牌在此解析成功，证明它们本身签名有效——正式解析器拒绝它们的
+        // 原因只能是算法白名单，而非签名或密钥问题。
+        JwtParser controlParser = Jwts.parser()
+                .verifyWith(hmacKey())
+                .requireIssuer("factory-finance")
+                .clockSkewSeconds(30)
+                .build();
+
+        String hs384Token = tokenSignedWith(Jwts.SIG.HS384);
+        String hs512Token = tokenSignedWith(Jwts.SIG.HS512);
+
+        assertThat(controlParser.parseSignedClaims(hs384Token).getPayload().getSubject()).isEqualTo("user-1");
+        assertThat(controlParser.parseSignedClaims(hs512Token).getPayload().getSubject()).isEqualTo("user-1");
+
+        // 同一令牌交给正式解析器（HS256 白名单）则被拒绝
+        JwtService service = service(Duration.ofMinutes(5));
+        assertThatThrownBy(() -> service.parseToken(hs384Token)).isInstanceOf(JwtException.class);
         assertThatThrownBy(() -> service.parseToken(hs512Token)).isInstanceOf(JwtException.class);
     }
 
