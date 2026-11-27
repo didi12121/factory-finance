@@ -12,7 +12,7 @@
 
 import type { EChartsOption } from 'echarts'
 
-import type { CashFlowTrendPoint, ExpenseCategoryStat, TransactionType } from '@/features/prototype/contracts'
+import type { CashFlowTrendPoint, ExpenseCategoryStat } from '@/features/prototype/contracts'
 import { formatAmount } from '@/utils/money'
 import type { DecimalString } from '@/utils/decimal'
 
@@ -28,15 +28,10 @@ export interface ChartPalette {
 }
 
 /** 业务交易类型显示名（业务中文，支出分类与近期流水共用） */
-export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
-  PROCESSING_FEE_RECEIPT: '加工费收款',
-  SHAREHOLDER_CONTRIBUTION: '股东出资',
-  SALARY: '工资',
-  UTILITIES: '水电费',
-  PURCHASE: '采购',
-  INTERNAL_TRANSFER: '内部转账',
-  OTHER: '其他',
-}
+/** 业务类型图表标签：统一来自契约单一来源（V1.1，F-002 整改），禁止本地定义 */
+import { TRANSACTION_TYPE_CHART_LABELS as TRANSACTION_TYPE_LABELS } from '@/features/prototype/contracts/labels'
+
+export { TRANSACTION_TYPE_LABELS }
 
 /** 图表边界：DecimalString → Number（仅用于 ECharts 几何值，禁止参与财务运算） */
 function toChartNumber(value: DecimalString): number {

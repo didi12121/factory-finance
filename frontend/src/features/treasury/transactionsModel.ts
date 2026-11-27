@@ -136,15 +136,10 @@ export function resolveTransactionQuery(
 /* --------------------------------- 标签 --------------------------------- */
 
 /** 业务类型标签（业务性质 ≠ 会计收入概念） */
-export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
-  PROCESSING_FEE_RECEIPT: '加工费回款',
-  SHAREHOLDER_CONTRIBUTION: '股东出资',
-  SALARY: '工资支出',
-  UTILITIES: '水电费支出',
-  PURCHASE: '采购支出',
-  INTERNAL_TRANSFER: '内部转账',
-  OTHER: '其他',
-}
+/** 业务类型标准标签：统一来自契约单一来源（V1.1，F-002 整改），禁止本地定义 */
+import { TRANSACTION_TYPE_LABELS } from '@/features/prototype/contracts/labels'
+
+export { TRANSACTION_TYPE_LABELS }
 
 /** 来源单据类型标签（回溯链） */
 export const SOURCE_DOC_TYPE_LABELS: Record<FundSourceDocType, string> = {

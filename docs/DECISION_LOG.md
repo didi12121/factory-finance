@@ -35,6 +35,9 @@
 | 2026-11-27 | AmountInput 契约明确：`valid`/`touched`/`showError` 独立语义；必填空值 `valid` 恒 false；中间态不判合法；`externalError` 阻断 `validate()`；错误 DOM ID 唯一（`useId`）；外部重置语义（新值同步 + `reset()` 清草稿） | Hotfix 评审整改要求（防止提交绕过外部校验、多实例 ID 冲突、重置残留草稿） | 24 个单元测试覆盖全部契约（含真实父组件 v-model 场景） | 已确认 |
 | 2026-11-27 | JWT 解析端使用 JJWT 官方算法白名单 **`sig().add(Jwts.SIG.HS256)`**，必要声明 sub/iss/iat/exp 存在性强校验 | Hotfix 要求：签发与解析均仅允许 HS256、使用正式白名单机制、不依赖未验证 Header | 非 HS256（HS512）、缺声明、错误 issuer、过期、篡改均有拒绝测试 | 已确认 |
 | 2026-11-27 | CORS 抽离独立配置类 **`infrastructure.web.CorsConfig`** | 消除安全配置类对自身 Bean 的构造注入风险 | `CorsPolicyIT` 真实上下文验证允许/拒绝来源（拒绝来源 403 且无 CORS 头；允许来源回显具体 Origin，非通配符） | 已确认 |
+| 2026-11-27 | Design System 展示页**构建期隔离**（`devOnlyView()` 与 prototypeView 同机制，QA F-001 P1 整改） | QA 产物扫描发现 DesignSystemView chunk（含虚构测试数据）进入生产 dist | 生产构建下该 chunk 被 Rollup 消除，dist 演示特征字符串 0 命中 | 已确认 |
+| 2026-11-27 | **Prototype Contract V1.1**：契约目录新增 `labels.ts`（业务类型标准标签 + 图表短标签显式别名），dashboard/treasury 双份标签映射收敛为单一来源（QA F-002 整改） | 展示元数据双份维护且文案不一致；契约变更经主 Agent（裁决人）批准并回写两消费方 | 版本 V1 → V1.1（仅新增展示元数据，类型/接口/导航契约不变） | 已确认 |
+| 2026-11-27 | FinancialMetric 指标区**左对齐基线**（MoneyText `align="left"`），表格金额保持右对齐（QA F-003 整改：文档同步） | Phase 0.2 评审要求标签/金额统一左基线（Stripe 指标区层级）；DESIGN_SYSTEM.md §4 原「指标卡右对齐」表述已同步更新 | MoneyText 新增 align 属性（默认 right 不变） | 已确认 |
 
 ## 记录规则
 

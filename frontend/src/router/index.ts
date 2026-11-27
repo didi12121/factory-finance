@@ -1,7 +1,6 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
-import type { AsyncComponentLoader, Component } from 'vue'
+import type { Component } from 'vue'
 
-import { DESIGN_SYSTEM_ENABLED } from '@/app/config'
 import MainLayout from '@/layouts/MainLayout.vue'
 import PlaceholderView from '@/views/PlaceholderView.vue'
 
@@ -11,25 +10,23 @@ const placeholder = (title: string, phase: string): { component: Component; meta
 })
 
 /**
- * 原型/演示页面的构建期隔离加载器。
+ * 原型/演示页面构建期隔离（生产产物不携带演示业务模块）。
  *
- * `import.meta.env.DEV` 与 `import.meta.env.VITE_ENABLE_PROTOTYPE` 在构建时被静态替换：
- * 生产构建（未启用原型开关）时条件分支折叠为 false，动态导入的演示业务模块
- * （含 Fixtures 与 Mock Store）连同独立 chunk 一起被 Rollup 消除，不进入产物；
- * 同时 beforeEnter 路由守卫保证演示路由不可访问（非仅隐藏菜单）。
+ * 使用 `import.meta.env.MODE` 作为构建期开关：该表达式在任何 Vite 构建中都被
+ * **静态替换为字面量**（development/test/production），生产构建下
+ * `'production' !== 'production'` 折叠为 false，死分支中的 `import('...')`
+ * 连同 chunk 被 Rollup/esbuild 消除（QA F-001 整改确认机制；未定义的
+ * VITE_* 环境键不参与静态折叠，不得用作开关）。
+ * beforeEnter 路由守卫保证演示路由行为层同样不可访问（非仅隐藏菜单）。
  */
-function prototypeView(loader: AsyncComponentLoader): () => Promise<Component> {
-  return async () => {
-    if (import.meta.env.DEV || import.meta.env.VITE_ENABLE_PROTOTYPE === 'true') {
-      const mod = await loader()
-      return (mod as { default: Component }).default
-    }
-    return PlaceholderView
-  }
-}
+const NON_PRODUCTION_BUILD = import.meta.env.MODE !== 'production'
 
 function prototypeGuard(): boolean {
-  return import.meta.env.DEV || import.meta.env.VITE_ENABLE_PROTOTYPE === 'true'
+  return NON_PRODUCTION_BUILD
+}
+
+function designSystemGuard(): boolean {
+  return NON_PRODUCTION_BUILD
 }
 
 const routes: RouteRecordRaw[] = [
@@ -39,35 +36,50 @@ const routes: RouteRecordRaw[] = [
     children: [
       { path: '', redirect: '/workbench' },
       {
-        // 经营概览：生产构建下 loader 回退到占位页（演示业务模块不进入产物）
+        // 经营概览：生产构建下回退占位页（演示业务模块不进入产物）
         path: 'workbench',
-        component: prototypeView(() => import('@/features/dashboard/DashboardView.vue')),
+        component:
+          NON_PRODUCTION_BUILD
+            ? () => import('@/features/dashboard/DashboardView.vue').then((m) => m.default)
+            : () => Promise.resolve(PlaceholderView),
         meta: { title: '经营概览', prototype: true },
       },
 
       { path: 'treasury/accounts', ...placeholder('资金账户', 'Phase 1') },
       {
         path: 'treasury/transactions',
-        component: prototypeView(() => import('@/features/treasury/TransactionsView.vue')),
+        component:
+          NON_PRODUCTION_BUILD
+            ? () => import('@/features/treasury/TransactionsView.vue').then((m) => m.default)
+            : () => Promise.resolve(PlaceholderView),
         meta: { title: '资金流水', prototype: true },
         beforeEnter: () => prototypeGuard() || { path: '/workbench' },
       },
 
       {
         path: 'business/receivables',
-        component: prototypeView(() => import('@/features/receivables/ReceivablesView.vue')),
+        component:
+          NON_PRODUCTION_BUILD
+            ? () => import('@/features/receivables/ReceivablesView.vue').then((m) => m.default)
+            : () => Promise.resolve(PlaceholderView),
         meta: { title: '应收账款', prototype: true },
         beforeEnter: () => prototypeGuard() || { path: '/workbench' },
       },
       {
         path: 'business/receivables/:id',
-        component: prototypeView(() => import('@/features/receivables/ReceivableDetailView.vue')),
+        component:
+          NON_PRODUCTION_BUILD
+            ? () => import('@/features/receivables/ReceivableDetailView.vue').then((m) => m.default)
+            : () => Promise.resolve(PlaceholderView),
         meta: { title: '应收单详情', prototype: true },
         beforeEnter: () => prototypeGuard() || { path: '/workbench' },
       },
       {
         path: 'business/processing-fee',
-        component: prototypeView(() => import('@/features/receipts/ReceiptsView.vue')),
+        component:
+          NON_PRODUCTION_BUILD
+            ? () => import('@/features/receipts/ReceiptsView.vue').then((m) => m.default)
+            : () => Promise.resolve(PlaceholderView),
         meta: { title: '加工费回款', prototype: true },
         beforeEnter: () => prototypeGuard() || { path: '/workbench' },
       },
@@ -87,9 +99,12 @@ const routes: RouteRecordRaw[] = [
 
       {
         path: 'dev/design-system',
-        component: () => import('@/features/dev/design-system/DesignSystemView.vue'),
+        component:
+          NON_PRODUCTION_BUILD
+            ? () => import('@/features/dev/design-system/DesignSystemView.vue').then((m) => m.default)
+            : () => Promise.resolve(PlaceholderView),
         meta: { title: 'Design System' },
-        beforeEnter: () => (DESIGN_SYSTEM_ENABLED ? true : { path: '/workbench' }),
+        beforeEnter: () => designSystemGuard() || { path: '/workbench' },
       },
     ],
   },
