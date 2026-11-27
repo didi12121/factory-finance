@@ -173,3 +173,25 @@
 ## 9. 业务 API 规划（均未实现）
 
 资金账户/流水、客户/供应商、应收/收款/核销、应付/付款、费用、股东往来、固定资产、凭证、报表等 REST 资源统一遵循：`/api/v1/<resource>` + 本契约的响应/错误/分页/金额/Trace 规范。**当前这些接口均未实现且默认返回 401**；各阶段接口随业务实现逐步补充到本文档。
+
+## 10. Phase 1 业务 API（正式业务，需 Bearer 认证）
+
+统一十进制字符串金额、YYYY-MM-DD 日期；错误码/分页/Trace 规范同上。
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| POST | /api/v1/auth/login | 登录（公开）{username,password} → {accessToken,tokenType,expiresAt,user} |
+| POST | /api/v1/auth/logout | 登出（记录/预留） |
+| PUT | /api/v1/auth/password | 修改密码 {oldPassword,newPassword} |
+| GET/POST/PUT | /api/v1/masterdata/customers | 客户列表/新增/更新（含启停用；被引用不得删除） |
+| GET/POST/PUT | /api/v1/masterdata/shareholders | 股东列表/新增/更新（含启停用） |
+| GET/POST/PUT | /api/v1/treasury/accounts | 资金账户列表/新增/更新（含启停用；余额由流水重算） |
+| GET/POST | /api/v1/treasury/contributions | 股东出资列表/确认出资（同事务生成 IN 流水） |
+| GET/POST | /api/v1/treasury/expenses | 支出列表/确认支出（同事务生成 OUT 流水） |
+| GET/POST | /api/v1/treasury/transfers | 转账列表/确认转账（同事务生成 OUT+IN 成对流水） |
+| GET | /api/v1/treasury/transactions | 资金流水（分页/搜索/日期/账户/类型/方向筛选） |
+| GET | /api/v1/treasury/dashboard/summary?from&to | 经营概览统计 |
+| POST | /api/v1/treasury/{contributions|expenses|transfers}/{id}/void | 撤销（保留原单据 + 反向流水 + 防重复撤销） |
+
+写操作幂等：数据库唯一约束（单据编号 + 来源流水唯一键）为最终防线，重复提交返回 409。
+业务日期（Asia/Shanghai）晚于服务器当前业务日期一律拒绝。
