@@ -27,7 +27,8 @@ export default defineConfig({
   projects: [
     {
       name: 'desktop-chrome',
-      testIgnore: /(?:mobile|prod-guard)\.spec\.ts/,
+      // isolation/visual 走独立配置（视觉基线带平台后缀，主套件不拾取）
+      testIgnore: /(?:mobile|prod-guard|isolation|visual)\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], viewport: { width: 1920, height: 1080 } },
     },
     {
