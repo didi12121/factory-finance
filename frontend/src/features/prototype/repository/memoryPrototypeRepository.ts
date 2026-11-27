@@ -609,12 +609,13 @@ function cloneReceivableView(view: ReceivableView): ReceivableView {
 /* ---------------------------------- 创建应收校验 ---------------------------------- */
 
 /**
- * 新建应收单校验（业务日期一致性，Store/Domain 层强制，禁止仅 UI 限制）：
- * - 会计期间：格式合法（YYYY-MM）且 ≤ DEMO_TODAY 所在月——未来月份不得创建；
- * - 对账日期：真实公历日期且 ≤ DEMO_TODAY——未来日期不得创建（DEMO_TODAY 当日允许）；
+ * 新建应收单校验（业务日期语义，按主 Agent 裁决与阶段规范校准）：
+ * - 会计期间：格式合法（YYYY-MM）的任意真实公历月份，**含未来月允许创建/登记**；
+ * - 对账日期：真实公历日期，**含未来日期允许创建**（DEMO_TODAY 当日亦允许）；
  * - 到期日期：可为未来（仅影响逾期派生），但不得早于对账日期；
- * - 收入确认口径：按 accountingMonth 归属；当前原型不支持未来收入确认，
- *   报告层（domain/reporting.ts）对 未来月/未来确认日期 单据做防御性过滤；
+ * - 收入确认（阶段规范约束点）：当前原型不支持未来收入确认——未来月/未来确认日期
+ *   单据**不得进入截至当前业务日期的已确认收入**（domain/reporting.ts 报告层防御性过滤，
+ *   视为未确认/未来期间单据）；
  * - 全部校验先行、失败零状态变化；禁止引入预计收入/预计回款/预收款会计规则。
  */
 function validateCreateReceivableCommand(
@@ -630,24 +631,11 @@ function validateCreateReceivableCommand(
     errors.push(bizError('VALIDATION_ERROR', '客户已停用，不可登记新应收单', { customerId: '客户已停用' }))
   }
 
-  const demoMonth = DEMO_TODAY.slice(0, 7)
   if (!isValidAccountingMonth(command.accountingMonth)) {
     errors.push(bizError('VALIDATION_ERROR', '会计期间格式非法（应为 YYYY-MM）', { accountingMonth: '会计期间格式非法' }))
-  } else if (command.accountingMonth > demoMonth) {
-    errors.push(
-      bizError('VALIDATION_ERROR', `会计期间不得晚于演示基准月 ${demoMonth}（未来月份不得创建/确认）`, {
-        accountingMonth: `会计期间不得晚于演示基准月 ${demoMonth}`,
-      }),
-    )
   }
   if (!isValidLocalDate(command.statementDate)) {
     errors.push(bizError('VALIDATION_ERROR', '对账日期格式非法', { statementDate: '对账日期必须为真实存在的 YYYY-MM-DD 日期' }))
-  } else if (command.statementDate > DEMO_TODAY) {
-    errors.push(
-      bizError('VALIDATION_ERROR', `对账日期不得晚于演示基准日 ${DEMO_TODAY}（未来日期不得创建）`, {
-        statementDate: `对账日期不得晚于演示基准日 ${DEMO_TODAY}`,
-      }),
-    )
   }
   if (command.dueDate !== null) {
     if (!isValidLocalDate(command.dueDate)) {

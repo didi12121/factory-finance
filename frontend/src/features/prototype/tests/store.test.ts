@@ -113,8 +113,8 @@ describe('createReceivable', () => {
     const before = snapshot(store)
     const receivable = await store.createReceivable({
       customerId: 'cust-b',
-      accountingMonth: '2026-11',
-      statementDate: '2026-11-29',
+      accountingMonth: '2026-12',
+      statementDate: '2026-12-05',
       dueDate: null,
       amount: '1234.56',
       remark: null,
@@ -133,8 +133,8 @@ describe('createReceivable', () => {
 
     const again = await store.createReceivable({
       customerId: 'cust-b',
-      accountingMonth: '2026-11',
-      statementDate: '2026-11-30',
+      accountingMonth: '2026-12',
+      statementDate: '2026-12-06',
       dueDate: null,
       amount: '0.01',
       remark: null,
@@ -143,10 +143,10 @@ describe('createReceivable', () => {
     expect(again.id).toBe('ar-026')
   })
 
-  it('参数校验拒绝：客户不存在/停用、月份非法/未来月份、日期非法/未来日期、到期日早于对账日、金额非正/非法', async () => {
+  it('参数校验拒绝：客户不存在/停用、月份非法、日期非法、到期日早于对账日、金额非正/非法', async () => {
     const base: Omit<CreateReceivableCommand, 'customerId'> = {
-      accountingMonth: '2026-11',
-      statementDate: '2026-11-29',
+      accountingMonth: '2026-12',
+      statementDate: '2026-12-05',
       dueDate: null,
       amount: '100.00',
       remark: null,
@@ -159,11 +159,9 @@ describe('createReceivable', () => {
       { customerId: 'cust-none', expectFragment: '客户不存在', ...base },
       { customerId: 'cust-e', expectFragment: '客户已停用', ...base },
       { customerId: 'cust-b', expectFragment: '会计期间格式非法', ...base, accountingMonth: '2026-13' },
-      { customerId: 'cust-b', expectFragment: '会计期间不得晚于演示基准月 2026-11', ...base, accountingMonth: '2026-12' },
       { customerId: 'cust-b', expectFragment: '对账日期格式非法', ...base, statementDate: '2026-02-30' },
-      { customerId: 'cust-b', expectFragment: '对账日期不得晚于演示基准日 2026-11-30', ...base, statementDate: '2026-12-05' },
       { customerId: 'cust-b', expectFragment: '到期日格式非法', ...base, dueDate: 'bad-date' },
-      { customerId: 'cust-b', expectFragment: '到期日不得早于对账日期', ...base, dueDate: '2026-11-01' },
+      { customerId: 'cust-b', expectFragment: '到期日不得早于对账日期', ...base, dueDate: '2026-12-01' },
       { customerId: 'cust-b', expectFragment: '应收金额必须大于 0', ...base, amount: '0' },
       { customerId: 'cust-b', expectFragment: '应收金额格式非法', ...base, amount: '12.345' },
     ]

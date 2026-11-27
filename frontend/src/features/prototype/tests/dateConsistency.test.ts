@@ -1,8 +1,11 @@
 /**
- * 业务日期一致性测试（Task A3，Store/Domain 层强制）：
- * 真实公历校验（无效日期/闰年/边界）、实际到账日期 ≤ DEMO_TODAY（未来收款拒绝、
- * 失败零状态变化）、新建应收单语义（会计月份 ≤ DEMO_TODAY 所在月、对账日期 ≤ DEMO_TODAY、
- * 到期日可为未来）、收入确认口径（报告层防御性过滤：未来月/未来确认日期不计已确认收入）。
+ * 业务日期一致性测试（Task A3，Store/Domain 层强制；创建期语义按主 Agent 裁决与
+ * 阶段规范原文校准）：
+ * 真实公历校验（无效日期/闰年/边界）、实际到账日期 ≤ DEMO_TODAY（未来收款强制拒绝、
+ * 失败零状态变化，Mandatory Regression 4）、新建应收单语义（会计月份/对账日期允许
+ * 含未来的真实公历值；到期日可为未来，仅影响逾期派生）、收入确认口径（阶段规范约束点：
+ * 未来月/未来确认日期单据不得进入截至当前业务日期的已确认收入，报告层防御性过滤，
+ * 视为未确认/未来期间）。
  */
 
 import { beforeEach, describe, expect, it } from 'vitest'
@@ -129,43 +132,74 @@ describe('confirmReceipt — 实际到账日期一致性（未来日期拒绝）
   })
 })
 
-describe('createReceivable — 会计月份/对账日期/到期日语义', () => {
+describe('createReceivable — 会计月份/对账日期/到期日语义（按主 Agent 裁决与阶段规范校准）', () => {
   let store: Store
   beforeEach(() => {
     store = setupStore()
   })
 
-  it('未来月份不得创建：accountingMonth 2026-12 拒绝（≤ 2026-11），状态不变', async () => {
+  it('未来月份/未来对账日期允许创建（阶段规范仅约束收入确认）：2026-12 单据创建成功且不增加现金', async () => {
     const before = snapshot(store)
-    const errors = await captureBusinessErrors(() =>
-      store.createReceivable({
-        customerId: 'cust-a',
-        accountingMonth: '2026-12',
-        statementDate: '2026-11-29',
-        dueDate: null,
-        amount: '100.00',
-        remark: null,
-      }),
-    )
-    expectErrorContaining(errors, '会计期间不得晚于演示基准月 2026-11')
-    expect(snapshot(store)).toEqual(before)
+    const created = await store.createReceivable({
+      customerId: 'cust-a',
+      accountingMonth: '2026-12',
+      statementDate: '2026-12-05',
+      dueDate: '2026-12-31',
+      amount: '5000.00',
+      remark: null,
+    })
+    expect(created.accountingMonth).toBe('2026-12')
+    expect(created.statementDate).toBe('2026-12-05')
+    expect(store.receivables.length).toBe(Number(before.receivables) + 1)
+    // 创建不增加现金/不建收款单/不建流水/不建核销
+    expect(store.receipts.length).toBe(before.receipts)
+    expect(store.fundTransactions.length).toBe(before.transactions)
+    expect(store.receiptAllocations.length).toBe(before.allocations)
+    expect(store.totalFundBalance).toBe(before.totalFundBalance)
   })
 
-  it('未来对账日期不得创建：statementDate 2026-12-05 拒绝（≤ 2026-11-30）；DEMO_TODAY 当日允许', async () => {
+  it('未来月单据视为未确认/未来期间：创建后本期收入不变，且不计入截至当前业务日期的已确认收入', async () => {
     const before = snapshot(store)
-    const errors = await captureBusinessErrors(() =>
-      store.createReceivable({
-        customerId: 'cust-a',
-        accountingMonth: '2026-11',
-        statementDate: '2026-12-05',
-        dueDate: null,
-        amount: '100.00',
-        remark: null,
-      }),
-    )
-    expectErrorContaining(errors, '对账日期不得晚于演示基准日 2026-11-30')
-    expect(snapshot(store)).toEqual(before)
+    const created = await store.createReceivable({
+      customerId: 'cust-a',
+      accountingMonth: '2026-12',
+      statementDate: '2026-12-05',
+      dueDate: null,
+      amount: '5000.00',
+      remark: null,
+    })
+    // 本期（2026-11）已确认收入不变
+    expect(store.dashboardSummary.periodProcessingFeeIncome).toBe(before.income)
+    // 2026-12 期间同样不确认（当前原型不支持未来收入确认）→ 未确认/未来期间
+    const dec = await store.getDashboardSummary({ from: '2026-12-01', to: '2026-12-31' })
+    expect(dec.periodProcessingFeeIncome).toBe('0.00')
+    // 含未来月的全区间已确认收入 = 仅既有已确认部分（不含 5,000.00 未来单据）
+    const wide = await store.getDashboardSummary({ from: '2026-09-01', to: '2026-12-31' })
+    expect(wide.periodProcessingFeeIncome).toBe('449614.38')
+    // 单据本身作为应收事实存在（未收余额派生正常），仅收入未确认
+    const view = store.receivableViewById(created.id)
+    expect(view?.summary.status).toBe('UNPAID')
+    expect(view?.summary.outstandingAmount).toBe('5000.00')
+    expect(view?.summary.integrity?.status).toBe('OK')
+  })
 
+  it('未来确认日期单据允许创建但不计已确认收入：statementDate 2026-12-01（month 2026-11）', async () => {
+    const before = snapshot(store)
+    await store.createReceivable({
+      customerId: 'cust-a',
+      accountingMonth: '2026-11',
+      statementDate: '2026-12-01',
+      dueDate: null,
+      amount: '700.00',
+      remark: null,
+    })
+    expect(store.dashboardSummary.periodProcessingFeeIncome).toBe(before.income)
+    const wide = await store.getDashboardSummary({ from: '2026-09-01', to: '2026-12-31' })
+    expect(wide.periodProcessingFeeIncome).toBe('449614.38')
+  })
+
+  it('DEMO_TODAY 当日与历史日期允许创建（真实公历边界）', async () => {
+    const before = snapshot(store)
     const ok = await store.createReceivable({
       customerId: 'cust-a',
       accountingMonth: '2026-11',
@@ -176,6 +210,8 @@ describe('createReceivable — 会计月份/对账日期/到期日语义', () =>
     })
     expect(ok.statementDate).toBe('2026-11-30')
     expect(store.receivables.length).toBe(Number(before.receivables) + 1)
+    // 当日单据计入已确认收入（2026-11 期间 +100.00）
+    expect(store.dashboardSummary.periodProcessingFeeIncome).toBe('99378.32')
   })
 
   it('到期日期可为未来（仅影响逾期派生）：dueDate 2027-06-30 创建成功且不判逾期', async () => {
