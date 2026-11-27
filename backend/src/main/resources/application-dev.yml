@@ -18,6 +18,10 @@ app:
       secret: ${JWT_SECRET:dev-only-jwt-secret-not-for-production-0123456789abcdef}
       issuer: factory-finance
       ttl: 2h
+    admin:
+      # 管理员初始密码（环境变量 ADMIN_INITIAL_PASSWORD）。
+      # dev-only 默认值仅供本地起步；非 dev/test 环境由 SecurityStartupValidator 禁止占位/空值。
+      initial-password: ${ADMIN_INITIAL_PASSWORD:dev-only-admin-initial-password-change-me}
 
 springdoc:
   api-docs:
