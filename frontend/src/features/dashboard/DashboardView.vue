@@ -93,34 +93,34 @@ const showSkeleton = computed(() => loading.value && summary.value === null)
         </div>
       </section>
 
-      <!-- Recent Activity -->
+      <!-- Recent Activity：两列各 ≤ 8 条（展示层 limit），底部统一「查看全部」入口 -->
       <section class="flex flex-col gap-4">
         <h2 class="text-section-title font-semibold text-text-primary">近期动态</h2>
-        <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div class="grid grid-cols-1 items-stretch gap-6 lg:grid-cols-2">
           <SectionPanel title="近期资金流水" flush>
-            <template #actions>
+            <RecentTransactions :transactions="summary.recentTransactions" />
+            <template #footer>
               <RouterLink
                 :to="transactionsPath"
-                class="text-table text-brand-foreground hover:underline"
+                class="inline-flex items-center text-table text-brand-foreground hover:underline"
                 data-testid="view-all-transactions"
               >
                 查看全部 →
               </RouterLink>
             </template>
-            <RecentTransactions :transactions="summary.recentTransactions" />
           </SectionPanel>
 
           <SectionPanel title="待收加工费" flush>
-            <template #actions>
+            <PendingReceivables :receivables="summary.pendingReceivables" />
+            <template #footer>
               <RouterLink
                 :to="receivablesPath"
-                class="text-table text-brand-foreground hover:underline"
+                class="inline-flex items-center text-table text-brand-foreground hover:underline"
                 data-testid="view-all-receivables"
               >
                 查看全部 →
               </RouterLink>
             </template>
-            <PendingReceivables :receivables="summary.pendingReceivables" />
           </SectionPanel>
         </div>
       </section>

@@ -16,6 +16,7 @@ import Button from '@/components/ui/button/Button.vue'
 import Dialog from '@/components/ui/dialog/Dialog.vue'
 import Input from '@/components/ui/input/Input.vue'
 import Select from '@/components/ui/select/Select.vue'
+import { AccountingMonthInput, BusinessDateInput } from '@/components/ui/date'
 import { useToast } from '@/components/ui/toast/useToast'
 import AmountInput from '@/components/finance/AmountInput.vue'
 import FormField from '@/components/shared/FormField.vue'
@@ -195,10 +196,12 @@ function fieldErrorsOf(error: BusinessError): string {
         hint="格式：YYYY-MM（如 2026-12）"
         :error="fieldErrors['accountingMonth']"
       >
-        <Input
+        <AccountingMonthInput
+          id="create-month"
           v-model="accountingMonth"
           placeholder="2026-12"
           :invalid="Boolean(fieldErrors['accountingMonth'])"
+          :hint="false"
           aria-label="所属月份"
         />
       </FormField>
@@ -210,10 +213,12 @@ function fieldErrorsOf(error: BusinessError): string {
         hint="格式：YYYY-MM-DD（如 2026-12-05）"
         :error="fieldErrors['statementDate']"
       >
-        <Input
+        <BusinessDateInput
+          id="create-statement-date"
           v-model="statementDate"
           placeholder="2026-12-05"
           :invalid="Boolean(fieldErrors['statementDate'])"
+          :hint="false"
           aria-label="对账日期"
         />
       </FormField>
@@ -224,10 +229,12 @@ function fieldErrorsOf(error: BusinessError): string {
         hint="格式：YYYY-MM-DD；留空表示未约定到期日（不据此判定逾期）"
         :error="fieldErrors['dueDate']"
       >
-        <Input
+        <BusinessDateInput
+          id="create-due-date"
           v-model="dueDate"
           placeholder="2026-12-31"
           :invalid="Boolean(fieldErrors['dueDate'])"
+          :hint="false"
           aria-label="到期日期"
         />
       </FormField>

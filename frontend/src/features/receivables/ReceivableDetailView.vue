@@ -26,6 +26,7 @@ import DocumentNumber from '@/components/finance/DocumentNumber.vue'
 import FinancialMetric from '@/components/finance/FinancialMetric.vue'
 import FinancialStatus from '@/components/finance/FinancialStatus.vue'
 import MoneyText from '@/components/finance/MoneyText.vue'
+import { formatOperationDateTime } from '@/components/ui/date'
 import DemoModeBanner from '@/components/shared/DemoModeBanner.vue'
 import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
@@ -148,7 +149,7 @@ function goRegisterPayment(): void {
               {{ customerName }} · 所属月份 {{ view.receivable.accountingMonth }}
             </p>
             <p class="text-caption text-text-muted">
-              到期日 {{ view.receivable.dueDate ?? '未约定到期日' }} · 派生基准日 {{ view.summary.asOf }}（DEMO_TODAY）
+              到期日 {{ view.receivable.dueDate ?? '未约定到期日' }} · 统计基准日 {{ view.summary.asOf }}
             </p>
           </div>
           <div class="flex flex-wrap gap-x-12 gap-y-6">
@@ -185,7 +186,7 @@ function goRegisterPayment(): void {
           </div>
           <div class="flex items-center justify-between gap-4">
             <dt class="text-caption text-text-muted">创建时间</dt>
-            <dd class="tabular text-table text-text-primary">{{ view.receivable.createdAt }}</dd>
+            <dd class="tabular text-table text-text-primary">{{ formatOperationDateTime(view.receivable.createdAt) }}</dd>
           </div>
         </dl>
       </section>
@@ -265,7 +266,7 @@ function goRegisterPayment(): void {
                   </span>
                 </TableCell>
                 <TableCell>
-                  <span class="tabular inline-block min-w-24 whitespace-nowrap">{{ row.allocatedAt }}</span>
+                  <span class="tabular inline-block min-w-24 whitespace-nowrap">{{ formatOperationDateTime(row.allocatedAt) }}</span>
                 </TableCell>
               </TableRow>
             </TableBody>
@@ -289,7 +290,7 @@ function goRegisterPayment(): void {
         <h2 class="text-section-title font-semibold text-text-primary">操作历史</h2>
         <ol class="mt-4 flex flex-col gap-3">
           <li v-for="(entry, index) in auditEntries" :key="`${entry.at}-${index}`" class="flex items-baseline gap-3">
-            <span class="tabular text-caption text-text-muted">{{ entry.at }}</span>
+            <span class="tabular text-caption text-text-muted">{{ formatOperationDateTime(entry.at) }}</span>
             <span class="text-table text-text-primary">{{ entry.event }}</span>
           </li>
         </ol>

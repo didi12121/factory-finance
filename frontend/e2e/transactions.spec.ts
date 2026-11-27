@@ -79,23 +79,23 @@ test.describe('资金流水列表与交易详情', () => {
     await expect(table.locator('tbody tr')).toHaveCount(4)
   })
 
-  test('金额排序使用精确比较（收入/支出列，非字典序）', async ({ page }) => {
+  test('金额排序使用精确比较（流入/流出列，非字典序）', async ({ page }) => {
     const table = page.locator(TABLE)
-    const incomeHeader = table.locator('th', { hasText: '收入金额' })
-    const outcomeHeader = table.locator('th', { hasText: '支出金额' })
+    const incomeHeader = table.locator('th', { hasText: '流入金额' })
+    const outcomeHeader = table.locator('th', { hasText: '流出金额' })
 
-    // 收入金额升序：无收入行（显示 —）在前
+    // 流入金额升序：无流入行（显示 —）在前
     await incomeHeader.click()
     await expect(incomeHeader).toHaveAttribute('aria-sort', 'ascending')
     await expect(table.locator('tbody tr').first().locator('td').nth(5)).toHaveText('—')
 
-    // 收入金额降序：最大收入 50,000.00（FT-2026-0001，数值序而非字典序）
+    // 流入金额降序：最大流入 50,000.00（FT-2026-0001，数值序而非字典序）
     await incomeHeader.click()
     await expect(incomeHeader).toHaveAttribute('aria-sort', 'descending')
     await expect(table.locator('tbody tr').first().locator('td').first()).toHaveText('FT-2026-0001')
     await expect(table.locator('tbody tr').first().locator('td').nth(5)).toHaveText('50,000.00')
 
-    // 支出金额降序：最大支出 45,000.00（FT-2026-0002）
+    // 流出金额降序：最大流出 45,000.00（FT-2026-0002）
     await outcomeHeader.click()
     await expect(outcomeHeader).toHaveAttribute('aria-sort', 'ascending')
     await outcomeHeader.click()

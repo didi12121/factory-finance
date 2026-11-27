@@ -50,7 +50,7 @@ import { isPrototypeBusinessError } from '@/features/prototype/repository/protot
 import { usePrototypeStore } from '@/features/prototype/stores/prototype'
 import { sumAmounts } from '@/features/prototype/domain/amounts'
 import { compareAmounts } from '@/utils/decimal'
-import DateField from './DateField.vue'
+import { BusinessDateInput } from '@/components/ui/date'
 import {
   buildAllocationDrafts,
   buildConfirmReceiptCommand,
@@ -505,7 +505,14 @@ void refreshPreview()
         </FormField>
 
         <FormField id="receipt-date" label="收款日期" required>
-          <DateField id="receipt-date" v-model="receiptDate" data-testid="registration-date" />
+          <!-- 统一业务日期组件：格式提示 + 回显（F-008）；实际收款日期 ≤ 业务基准日（Domain 最终校验） -->
+          <BusinessDateInput
+            id="receipt-date"
+            v-model="receiptDate"
+            :max="DEMO_TODAY"
+            required
+            data-testid="registration-date"
+          />
         </FormField>
 
         <FormField id="receipt-account" label="收款账户" required>

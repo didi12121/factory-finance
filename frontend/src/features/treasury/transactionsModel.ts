@@ -21,6 +21,7 @@
 
 import { subtractAmounts, type DecimalString } from '@/utils/decimal'
 import { canonicalAmount2, sumAmounts } from '@/features/prototype/domain/amounts'
+import { formatOperationDateTime } from '@/components/ui/date'
 import type {
   EntityId,
   FundSourceDocType,
@@ -229,7 +230,7 @@ export function computeTransactionSummary(
 /* ------------------------------ 金额列排序取值 ------------------------------ */
 
 /**
- * 收入金额列排序取值：IN 流水取金额，其余取 '0'（无收入）。
+ * 流入金额列排序取值：IN 流水取金额，其余取 '0'（无流入）。
  * 排序必须使用 compareAmounts 精确比较（列 sortingFn = amountSortingFn）。
  */
 export function incomeSortValue(txn: FundTransaction): DecimalString {
@@ -237,7 +238,7 @@ export function incomeSortValue(txn: FundTransaction): DecimalString {
 }
 
 /**
- * 支出金额列排序取值：OUT 流水取金额，其余取 '0'（无支出）。
+ * 流出金额列排序取值：OUT 流水取金额，其余取 '0'（无流出）。
  * 排序必须使用 compareAmounts 精确比较（列 sortingFn = amountSortingFn）。
  */
 export function outcomeSortValue(txn: FundTransaction): DecimalString {
@@ -329,7 +330,8 @@ export function buildTransactionDetailModel(
       kind: 'status',
       tone: TRANSACTION_STATUS_KINDS[txn.status],
     },
-    { key: 'createdAt', label: '创建时间', value: txn.createdAt, kind: 'date' },
+    // 操作时间展示统一 YYYY-MM-DD HH:mm（不向用户暴露 ISO 分隔符等开发术语）
+    { key: 'createdAt', label: '创建时间', value: formatOperationDateTime(txn.createdAt), kind: 'date' },
     { key: 'remark', label: '备注', value: txn.remark ?? '—', kind: 'text' },
   ]
 

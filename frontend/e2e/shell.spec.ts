@@ -56,4 +56,28 @@ test.describe('Application Shell', () => {
     )
     expect(overflow).toBeLessThanOrEqual(0)
   })
+
+  test('详情页高亮父级导航；导航状态与页面能力一致（去噪后的规划中标注）', async ({ page }) => {
+    await page.goto('/workbench')
+    const sidebar = page.locator('[data-testid="sidebar"]')
+
+    // 已实现原型页可访问（正常链接）
+    await expect(sidebar.getByRole('link', { name: '应收账款', exact: true })).toBeVisible()
+    await expect(sidebar.getByRole('link', { name: '资金流水', exact: true })).toBeVisible()
+
+    // 详情页高亮父级导航（/business/receivables/:id → 应收账款 aria-current）
+    await page.goto('/business/receivables/ar-004')
+    await expect(page.getByTestId('receivable-detail-page')).toBeVisible()
+    await expect(sidebar.getByRole('link', { name: '应收账款', exact: true })).toHaveAttribute(
+      'aria-current',
+      'page',
+    )
+    await expect(
+      sidebar.getByRole('link', { name: '应付账款', exact: true }),
+    ).not.toHaveAttribute('aria-current', 'page')
+
+    // 整组未实现仅分组级一次「规划中」（替代逐组重复的「未实现」标签）
+    await expect(sidebar.getByText('规划中')).toHaveCount(3)
+    await expect(sidebar.getByText('未实现')).toHaveCount(0)
+  })
 })

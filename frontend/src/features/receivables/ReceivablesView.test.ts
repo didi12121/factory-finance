@@ -79,7 +79,7 @@ function filterSelect(firstOptionLabel: string) {
 }
 
 describe('ReceivablesView — 初始渲染与顶部指标', () => {
-  it('渲染页面标题、演示横幅、四组财务指标（含统计范围与 DEMO_TODAY 基准）', async () => {
+  it('渲染页面标题、演示横幅、四组财务指标（含统计范围与统计基准日）', async () => {
     await setup()
     const text = bodyText()
     expect(text).toContain('应收账款')
@@ -94,7 +94,9 @@ describe('ReceivablesView — 初始渲染与顶部指标', () => {
     expect(text).toContain('40,800.01')
     expect(text).toContain('统计范围：全部应收单')
     expect(text).toContain('2026-11-30')
-    expect(text).toContain('DEMO_TODAY')
+    expect(text).toContain('统计基准日：2026-11-30')
+    // 不向用户暴露内部代号（演示基准常量名等开发术语）
+    expect(text).not.toContain('DEMO_TODAY')
     afterEachCleanup()
   })
 

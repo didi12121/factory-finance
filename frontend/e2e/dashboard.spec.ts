@@ -25,9 +25,13 @@ test.describe('经营概览 Dashboard', () => {
     await expect(page.locator('[data-testid="expense-chart"]')).toBeVisible()
     await expect(page.locator('[data-testid="expense-chart"]')).toHaveAttribute('data-categories', '4')
 
-    // 近期动态
+    // 近期动态（展示层各 ≤ 8 条，底部「查看全部」入口）
     await expect(page.locator('[data-testid="recent-transactions"]')).toBeVisible()
     await expect(page.locator('[data-testid="pending-receivables"]')).toBeVisible()
+    await expect(page.locator('[data-testid="recent-transaction-row"]')).toHaveCount(8)
+    await expect(page.locator('[data-testid="pending-receivable-row"]')).toHaveCount(8)
+    await expect(page.locator('[data-testid="view-all-transactions"]')).toBeVisible()
+    await expect(page.locator('[data-testid="view-all-receivables"]')).toBeVisible()
   })
 
   test('核心金额 28px computed style', async ({ page }) => {
@@ -55,7 +59,7 @@ test.describe('经营概览 Dashboard', () => {
     await expect(page.locator('[data-testid="metric-fund-balance"] .text-metric')).toHaveText('77,661.45')
   })
 
-  test('导航跳转：应收余额 / 待收单据 / 近期流水 / 新建记录', async ({ page }) => {
+  test('导航跳转：应收余额 / 待收单据 / 近期流水 / 新建记录 / 查看全部', async ({ page }) => {
     // 应收余额 → /business/receivables
     await page.goto('/workbench')
     await page.locator('[data-testid="metric-receivables-link"]').click()
@@ -70,6 +74,14 @@ test.describe('经营概览 Dashboard', () => {
     await page.goto('/workbench')
     await page.locator('[data-testid="recent-transaction-row"]').first().click()
     await expect(page).toHaveURL(/\/treasury\/transactions/)
+
+    // 每列底部「查看全部 →」→ 业务列表（冻结路由）
+    await page.goto('/workbench')
+    await page.locator('[data-testid="view-all-transactions"]').click()
+    await expect(page).toHaveURL(/\/treasury\/transactions/)
+    await page.goto('/workbench')
+    await page.locator('[data-testid="view-all-receivables"]').click()
+    await expect(page).toHaveURL(/\/business\/receivables$/)
 
     // 新建记录 → /business/processing-fee?action=create（冻结契约）
     await page.goto('/workbench')
