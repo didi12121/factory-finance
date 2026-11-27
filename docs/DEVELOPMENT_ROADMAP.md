@@ -36,6 +36,11 @@ Phase 6   — AI Finance Assistant
 
 ## Phase 0.2 — Core UI Prototypes（计划）
 
+> **执行状态（2026-11-27）**：已按多 Agent 并行协议完成开发并通过独立 QA 两轮审核
+> （`PHASE_0_2 = READY_FOR_REVIEW`，见 `docs/reviews/PHASE_0_2_DELIVERY_REPORT.md`）。
+> 交付为前端演示原型（单一 Mock Store + 虚构数据），未含任何正式财务业务实现；
+> 正式视觉验收与基线固化属于 Phase 0.3。
+
 **目标**：核心业务页面的 UI 原型（经营概览、资金、应收应付等关键页面的静态/交互原型），用于产品与视觉评审。
 
 **验收要点**：原型页面覆盖核心工作流；遵守 UI 禁止事项；使用虚构测试数据；不接入真实业务逻辑。（具体范围待架构师与产品负责人确认。）
