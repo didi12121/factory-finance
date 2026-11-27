@@ -6,13 +6,13 @@ import { expect, test, type Page } from '@playwright/test'
 
 /**
  * Phase 0.2 交付截图（真实浏览器、最终集成版本、交互生成业务状态）。
- * 输出：artifacts/screenshots/phase-0.2/（Phase 0.1.1 历史截图不再由本套件覆盖）。
+ * 输出：artifacts/screenshots/phase-0.3/（Phase 0.1.1/0.2 历史证据受保护，不再由本套件覆盖）。
  *
  * Phase 0.3 采集修正：fullPage 截图统一在 scrollTop=0 状态下采集 ——
  * sticky Header 的视口位置随滚动偏移，滚动态直接 fullPage 会把 Header
  * 拼接到页面中部（截图采集伪影；判定证据见 layout-audit.spec.ts）。
  */
-const outputDir = fileURLToPath(new URL('../../artifacts/screenshots/phase-0.2/', import.meta.url))
+const outputDir = fileURLToPath(new URL('../../artifacts/screenshots/phase-0.3/', import.meta.url))
 
 async function settle(page: Page): Promise<void> {
   await page.evaluate(() => document.fonts.ready)

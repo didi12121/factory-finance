@@ -14,6 +14,9 @@ export default defineConfig({
   use: {
     baseURL: `http://127.0.0.1:${Number(process.env.E2E_PORT ?? 4173)}`,
     trace: 'retain-on-failure',
+    // 视觉基线确定性：统一 Locale 与时区（截图/视觉回归可复现）
+    locale: 'zh-CN',
+    timezoneId: 'Asia/Shanghai',
   },
   webServer: {
     command: `npm run build:test && npm run preview -- --host 127.0.0.1 --port ${Number(process.env.E2E_PORT ?? 4173)} --strictPort`,
