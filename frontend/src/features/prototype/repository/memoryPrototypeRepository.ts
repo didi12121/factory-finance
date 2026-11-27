@@ -55,9 +55,17 @@ import { canonicalAmount2 } from '../domain/amounts'
 import { isValidAccountingMonth, isValidLocalDate } from '../domain/dateRules'
 import { buildReceivableView, buildReceivableViews } from '../domain/receivable'
 import { computeDashboardSummary } from '../domain/reporting'
-import { hashReceiptCommandParams } from './idempotency'
+import {
+  canonicalReceiptCommandParams,
+  hashReceiptCommandParams,
+  normalizeIdempotencyKey,
+} from './idempotency'
 import { PrototypeBusinessError } from './prototypeErrors'
-import type { PrototypeState } from './state'
+import {
+  getIdempotencyRecord,
+  setIdempotencyRecord,
+  type PrototypeState,
+} from './state'
 
 /* ---------------------------------- 通用工具 ---------------------------------- */
 
@@ -422,13 +430,17 @@ export class MemoryPrototypeRepository implements PrototypeRepository {
    * 确认收款（原子确认，内存一致性）：
    * 读取状态 → 全量校验（含幂等键）→ 构建完整变更（收款单 ×1、资金流入流水 ×1、
    * 核销明细 ×N）→ 一次性提交。任何校验失败：收款单/流水/核销/余额/收入全部不变。
-   * 幂等：同键同参重复提交返回原收款单；同键不同参数（哈希业务参数对比）拒绝。
+   * 幂等：同键同参（规范化参数串直接比较）重复提交返回原收款单；同键不同参数 CONFLICT 拒绝；
+   * 哈希仅作索引优化，不作唯一判据。
    */
   async confirmReceipt(command: ConfirmReceiptCommand): Promise<Receipt> {
+    const idempotencyKey = normalizeIdempotencyKey(command.idempotencyKey)
+    const canonicalParams = canonicalReceiptCommandParams(command)
     const paramsHash = hashReceiptCommandParams(command)
-    const existing = this.state.idempotencyRecords[command.idempotencyKey]
+    const existing = getIdempotencyRecord(this.state.idempotencyRecords, idempotencyKey)
     if (existing !== undefined) {
-      if (existing.paramsHash !== paramsHash) {
+      // 等价性判据：规范化参数串直接比较（哈希仅索引优化）
+      if (existing.canonicalParams !== canonicalParams) {
         throw new PrototypeBusinessError([
           bizError('CONFLICT', '同一幂等键的业务参数不一致，拒绝重复提交', {
             idempotencyKey: '幂等键与既有收款单的业务参数不一致',
@@ -475,7 +487,7 @@ export class MemoryPrototypeRepository implements PrototypeRepository {
       fundTransactionId: transactionId,
       externalRef: command.externalRef,
       remark: command.remark,
-      idempotencyKey: command.idempotencyKey,
+      idempotencyKey,
     }
     const transaction: FundTransaction = {
       id: transactionId,
@@ -507,7 +519,13 @@ export class MemoryPrototypeRepository implements PrototypeRepository {
     this.state.receipts.push(receipt)
     this.state.fundTransactions.push(transaction)
     this.state.receiptAllocations.push(...allocations)
-    this.state.idempotencyRecords[command.idempotencyKey] = { receiptId, paramsHash }
+    // 幂等索引写入（自有属性写入，'__proto__' 等键不污染原型链）：
+    // canonicalParams 直接比较为等价性判据，paramsHash 仅索引优化
+    setIdempotencyRecord(this.state.idempotencyRecords, idempotencyKey, {
+      receiptId,
+      canonicalParams,
+      paramsHash,
+    })
 
     return cloneEntity(receipt)
   }
@@ -590,6 +608,16 @@ function cloneReceivableView(view: ReceivableView): ReceivableView {
 
 /* ---------------------------------- 创建应收校验 ---------------------------------- */
 
+/**
+ * 新建应收单校验（业务日期语义，按主 Agent 裁决与阶段规范校准）：
+ * - 会计期间：格式合法（YYYY-MM）的任意真实公历月份，**含未来月允许创建/登记**；
+ * - 对账日期：真实公历日期，**含未来日期允许创建**（DEMO_TODAY 当日亦允许）；
+ * - 到期日期：可为未来（仅影响逾期派生），但不得早于对账日期；
+ * - 收入确认（阶段规范约束点）：当前原型不支持未来收入确认——未来月/未来确认日期
+ *   单据**不得进入截至当前业务日期的已确认收入**（domain/reporting.ts 报告层防御性过滤，
+ *   视为未确认/未来期间单据）；
+ * - 全部校验先行、失败零状态变化；禁止引入预计收入/预计回款/预收款会计规则。
+ */
 function validateCreateReceivableCommand(
   command: CreateReceivableCommand,
   customers: Customer[],
