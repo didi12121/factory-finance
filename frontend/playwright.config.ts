@@ -7,6 +7,7 @@ import { defineConfig, devices } from '@playwright/test'
 export default defineConfig({
   testDir: './e2e',
   outputDir: './test-results',
+  globalSetup: './e2e/global-setup.ts',
   timeout: 30_000,
   fullyParallel: false,
   workers: 1,
@@ -17,6 +18,8 @@ export default defineConfig({
     // 视觉基线确定性：统一 Locale 与时区（截图/视觉回归可复现）
     locale: 'zh-CN',
     timezoneId: 'Asia/Shanghai',
+    // 全局已登录态（业务页受登录守卫保护）；phase1-auth 自行清空以测登录流程
+    storageState: 'test-results/.auth/state.json',
   },
   webServer: {
     command: `npm run build:test && npm run preview -- --host 127.0.0.1 --port ${Number(process.env.E2E_PORT ?? 4173)} --strictPort`,

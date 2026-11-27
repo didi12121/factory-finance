@@ -63,8 +63,30 @@ jobs:
         run: npm run build
 
   e2e:
-    name: Playwright E2E（真实浏览器 + 截图 + 生产构建防护）
+    name: Playwright E2E（真实浏览器 + 截图 + 生产构建防护 + 真实后端验收）
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ci_root
+          MYSQL_DATABASE: factory_finance
+          MYSQL_USER: factory
+          MYSQL_PASSWORD: ci_app
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pci_root"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    env:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_URL: jdbc:mysql://127.0.0.1:3306/factory_finance?useSSL=false&serverTimezone=Asia/Shanghai&characterEncoding=utf8&allowPublicKeyRetrieval=true
+      DB_USERNAME: factory
+      DB_PASSWORD: ci_app
+      JWT_SECRET: ci-e2e-jwt-secret-0123456789abcdef0123456789
+      ADMIN_INITIAL_PASSWORD: ci_admin_123
+      PHASE1_E2E_USERNAME: admin
+      PHASE1_E2E_PASSWORD: ci_admin_123
     steps:
       - uses: actions/checkout@v4
 
@@ -74,9 +96,25 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+
       - name: 安装依赖
         working-directory: frontend
         run: npm ci
+
+      - name: 启动真实后端（连接 MySQL 服务）
+        run: |
+          chmod +x backend/mvnw
+          ./backend/mvnw -B -f backend/pom.xml spring-boot:run &
+          for i in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:8080/api/v1/health && break
+            sleep 3
+          done
 
       - name: 安装 Playwright Chromium
         working-directory: frontend
@@ -98,7 +136,7 @@ jobs:
           path: |
             frontend/playwright-report/
             frontend/test-results/
-            artifacts/screenshots/phase-0.1.1/
+            artifacts/screenshots/
           if-no-files-found: ignore
 
   compose-config:

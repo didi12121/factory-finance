@@ -1,0 +1,308 @@
+{
+  "mode": "test",
+  "dist": "D:\\env\\factory-finance-worktrees\\agent-c-frontend\\frontend\\dist",
+  "expectDemo": true,
+  "filesScanned": 636,
+  "bytesScanned": 18975980,
+  "extensions": {
+    ".js": 39,
+    ".css": 1,
+    ".woff2": 301,
+    ".woff": 294,
+    ".html": 1
+  },
+  "forbiddenFeatures": [
+    {
+      "id": "confirmReceipt",
+      "category": "mock-store",
+      "hits": 4,
+      "files": [
+        "assets/ReceiptsView-BwsjT2GD.js",
+        "assets/prototype-B7ErsLXy.js"
+      ]
+    },
+    {
+      "id": "createReceivable",
+      "category": "mock-store",
+      "hits": 4,
+      "files": [
+        "assets/ReceivablesView-BuVu7f_b.js",
+        "assets/prototype-B7ErsLXy.js"
+      ]
+    },
+    {
+      "id": "autoAllocateReceipt",
+      "category": "mock-store",
+      "hits": 4,
+      "files": [
+        "assets/ReceiptsView-BwsjT2GD.js",
+        "assets/prototype-B7ErsLXy.js"
+      ]
+    },
+    {
+      "id": "previewReceiptAllocation",
+      "category": "mock-store",
+      "hits": 4,
+      "files": [
+        "assets/ReceiptsView-BwsjT2GD.js",
+        "assets/prototype-B7ErsLXy.js"
+      ]
+    },
+    {
+      "id": "recomputeAccountBalance",
+      "category": "mock-store",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "getDashboardSummary",
+      "category": "mock-store",
+      "hits": 3,
+      "files": [
+        "assets/prototype-B7ErsLXy.js"
+      ]
+    },
+    {
+      "id": "idempotencyKey",
+      "category": "mock-store",
+      "hits": 16,
+      "files": [
+        "assets/ReceiptsView-BwsjT2GD.js",
+        "assets/prototype-B7ErsLXy.js"
+      ]
+    },
+    {
+      "id": "listReceipts",
+      "category": "mock-store",
+      "hits": 4,
+      "files": [
+        "assets/ReceiptsView-BwsjT2GD.js",
+        "assets/prototype-B7ErsLXy.js"
+      ]
+    },
+    {
+      "id": "示例客户",
+      "category": "fixture",
+      "hits": 15,
+      "files": [
+        "assets/DesignSystemView-xzRrjBlI.js",
+        "assets/prototype-B7ErsLXy.js"
+      ]
+    },
+    {
+      "id": "示例供应商",
+      "category": "fixture",
+      "hits": 3,
+      "files": [
+        "assets/prototype-B7ErsLXy.js"
+      ]
+    },
+    {
+      "id": "示例股东",
+      "category": "fixture",
+      "hits": 1,
+      "files": [
+        "assets/prototype-B7ErsLXy.js"
+      ]
+    },
+    {
+      "id": "示例物业",
+      "category": "fixture",
+      "hits": 2,
+      "files": [
+        "assets/prototype-B7ErsLXy.js"
+      ]
+    },
+    {
+      "id": "虚构演示数据",
+      "category": "fixture",
+      "hits": 2,
+      "files": [
+        "assets/ReceivableDetailView-B5uBvKSz.js",
+        "assets/ReceivablesView-BuVu7f_b.js"
+      ]
+    },
+    {
+      "id": "虚构测试数据",
+      "category": "fixture",
+      "hits": 7,
+      "files": [
+        "assets/DesignSystemView-xzRrjBlI.js"
+      ]
+    },
+    {
+      "id": "虚构",
+      "category": "fixture",
+      "hits": 10,
+      "files": [
+        "assets/DesignSystemView-xzRrjBlI.js",
+        "assets/ReceivableDetailView-B5uBvKSz.js",
+        "assets/ReceivablesView-BuVu7f_b.js"
+      ]
+    },
+    {
+      "id": "跨模块演示场景",
+      "category": "fixture",
+      "hits": 2,
+      "files": [
+        "assets/prototype-B7ErsLXy.js"
+      ]
+    },
+    {
+      "id": "DEMO_TODAY",
+      "category": "fixture",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "2026-11-30",
+      "category": "fixture",
+      "hits": 9,
+      "files": [
+        "assets/prototype-B7ErsLXy.js"
+      ]
+    },
+    {
+      "id": "AR-2026-",
+      "category": "fixture",
+      "hits": 24,
+      "files": [
+        "assets/prototype-B7ErsLXy.js"
+      ]
+    },
+    {
+      "id": "SK-2026-",
+      "category": "fixture",
+      "hits": 8,
+      "files": [
+        "assets/prototype-B7ErsLXy.js"
+      ]
+    },
+    {
+      "id": "FT-2026-",
+      "category": "fixture",
+      "hits": 22,
+      "files": [
+        "assets/prototype-B7ErsLXy.js"
+      ]
+    },
+    {
+      "id": "demo-rc-",
+      "category": "fixture",
+      "hits": 8,
+      "files": [
+        "assets/prototype-B7ErsLXy.js"
+      ]
+    },
+    {
+      "id": "BANK-REF-",
+      "category": "fixture",
+      "hits": 6,
+      "files": [
+        "assets/ReceiptsView-BwsjT2GD.js",
+        "assets/prototype-B7ErsLXy.js"
+      ]
+    },
+    {
+      "id": "cust-a",
+      "category": "fixture",
+      "hits": 5,
+      "files": [
+        "assets/prototype-B7ErsLXy.js"
+      ]
+    },
+    {
+      "id": "acct-bank",
+      "category": "fixture",
+      "hits": 19,
+      "files": [
+        "assets/prototype-B7ErsLXy.js"
+      ]
+    },
+    {
+      "id": "收款单",
+      "category": "fixture",
+      "hits": 22,
+      "files": [
+        "assets/ReceiptsView-BwsjT2GD.js",
+        "assets/ReceivableDetailView-B5uBvKSz.js",
+        "assets/prototype-B7ErsLXy.js"
+      ]
+    },
+    {
+      "id": "登记回款",
+      "category": "fixture",
+      "hits": 5,
+      "files": [
+        "assets/ReceiptsView-BwsjT2GD.js",
+        "assets/ReceivableDetailView-B5uBvKSz.js",
+        "assets/ReceivablesView-BuVu7f_b.js"
+      ]
+    },
+    {
+      "id": "Color Tokens",
+      "category": "design-system",
+      "hits": 1,
+      "files": [
+        "assets/DesignSystemView-xzRrjBlI.js"
+      ]
+    },
+    {
+      "id": "XS-2026-",
+      "category": "design-system",
+      "hits": 2,
+      "files": [
+        "assets/DesignSystemView-xzRrjBlI.js"
+      ]
+    },
+    {
+      "id": "组件展示页",
+      "category": "design-system",
+      "hits": 1,
+      "files": [
+        "assets/DesignSystemView-xzRrjBlI.js"
+      ]
+    }
+  ],
+  "forbiddenTotalHits": 213,
+  "skeleton": [
+    {
+      "id": "工厂财务",
+      "hits": 4
+    },
+    {
+      "id": "工作台",
+      "hits": 1
+    },
+    {
+      "id": "经营概览",
+      "hits": 5
+    },
+    {
+      "id": "资金管理",
+      "hits": 1
+    },
+    {
+      "id": "业务管理",
+      "hits": 1
+    },
+    {
+      "id": "应收账款",
+      "hits": 6
+    },
+    {
+      "id": "该功能尚未实现",
+      "hits": 1
+    }
+  ],
+  "skeletonOk": true,
+  "forbiddenChunkNames": [
+    "assets/DesignSystemView-xzRrjBlI.js",
+    "assets/ReceiptsView-BwsjT2GD.js",
+    "assets/ReceivableDetailView-B5uBvKSz.js",
+    "assets/ReceivablesView-BuVu7f_b.js",
+    "assets/prototype-B7ErsLXy.js",
+    "assets/receivableList-9DxkExZu.js"
+  ],
+  "pass": true
+}

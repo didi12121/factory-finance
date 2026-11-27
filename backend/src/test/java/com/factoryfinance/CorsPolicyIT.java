@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -24,6 +25,16 @@ class CorsPolicyIT extends AbstractIntegrationTest {
                         .header("Access-Control-Request-Method", "GET"))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Access-Control-Allow-Origin", ALLOWED_ORIGIN));
+    }
+
+    @Test
+    void preflight_from_local_loopback_preview_port_is_accepted_in_test_profile() throws Exception {
+        // dev/test 回环模式：Playwright 预览端口（任意端口）携带 Origin 的 POST 必须放行
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType("application/json")
+                        .header("Origin", "http://127.0.0.1:4180")
+                        .content("{\"username\":\"x\",\"password\":\"y\"}"))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
