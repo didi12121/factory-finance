@@ -6,7 +6,7 @@
  * 数据只经 usePrototypeStore 读取：列表走 listReceipts（契约查询语义），
  * 已核销/未分配/核销状态由核销明细实时派生（buildReceiptRowViews）。
  */
-import { computed, h, ref, watch, type Ref } from 'vue'
+import { computed, h, ref, watch, type Ref, type VNode } from 'vue'
 import { createColumnHelper, type ColumnDef } from '@tanstack/vue-table'
 
 import Button from '@/components/ui/button/Button.vue'
@@ -121,43 +121,58 @@ function openDetail(id: EntityId): void {
 
 /* ------------------------------ 列定义 ------------------------------ */
 
+/**
+ * 关键列内容容器（QA F-007）：min-width ≥ 96px + 不换行，
+ * 390px 下避免逐字竖排；宽表在 Table 容器内横向滚动，页面无横向溢出。
+ */
+function keyCell(content: string | VNode): VNode {
+  return h('div', { class: 'min-w-[96px] whitespace-nowrap' }, [content])
+}
+
 const columnHelper = createColumnHelper<ReceiptRowView>()
 
 const columns: ColumnDef<ReceiptRowView, string>[] = [
   columnHelper.accessor('receipt.receiptNo', {
     id: 'receiptNo',
     header: '收款单编号',
-    cell: (info) => h(DocumentNumber, { value: info.getValue() }),
+    cell: (info) => keyCell(h(DocumentNumber, { value: info.getValue() })),
   }),
-  columnHelper.accessor('customerName', { header: '客户' }),
+  columnHelper.accessor('customerName', {
+    header: '客户',
+    cell: (info) => keyCell(info.getValue()),
+  }),
   columnHelper.accessor('receipt.receiptDate', {
     id: 'receiptDate',
     header: '收款日期',
+    cell: (info) => h('div', { class: 'whitespace-nowrap' }, info.getValue()),
   }),
-  columnHelper.accessor('accountName', { header: '收款账户' }),
+  columnHelper.accessor('accountName', {
+    header: '收款账户',
+    cell: (info) => keyCell(info.getValue()),
+  }),
   columnHelper.accessor('receipt.actualAmount', {
     id: 'actualAmount',
     header: '实际收款金额',
     meta: { align: 'right' },
     sortingFn: amountSortingFn,
-    cell: (info) => h(MoneyText, { value: info.getValue(), size: 'table' }),
+    cell: (info) => h(MoneyText, { value: info.getValue(), size: 'table', class: 'whitespace-nowrap' }),
   }),
   columnHelper.accessor('allocatedAmount', {
     header: '已核销金额',
     meta: { align: 'right' },
     sortingFn: amountSortingFn,
-    cell: (info) => h(MoneyText, { value: info.getValue(), size: 'table' }),
+    cell: (info) => h(MoneyText, { value: info.getValue(), size: 'table', class: 'whitespace-nowrap' }),
   }),
   columnHelper.accessor('unallocatedAmount', {
     header: '未分配金额',
     meta: { align: 'right' },
     sortingFn: amountSortingFn,
-    cell: (info) => h(MoneyText, { value: info.getValue(), size: 'table' }),
+    cell: (info) => h(MoneyText, { value: info.getValue(), size: 'table', class: 'whitespace-nowrap' }),
   }),
   columnHelper.accessor('receipt.externalRef', {
     id: 'externalRef',
     header: '外部流水参考号',
-    cell: (info) => h(DocumentNumber, { value: info.getValue() ?? '—' }),
+    cell: (info) => keyCell(h(DocumentNumber, { value: info.getValue() ?? '—' })),
   }),
   columnHelper.accessor('statusLabel', {
     header: '状态',
@@ -218,11 +233,26 @@ const columns: ColumnDef<ReceiptRowView, string>[] = [
         aria-label="按收款账户筛选"
         data-testid="filter-account"
       />
-      <div class="flex items-center gap-2">
-        <label for="receipt-date-from" class="text-caption text-text-muted">收款日期</label>
-        <DateField id="receipt-date-from" v-model="dateFrom" data-testid="filter-date-from" />
-        <span class="text-caption text-text-muted">至</span>
-        <DateField id="receipt-date-to" v-model="dateTo" data-testid="filter-date-to" />
+      <div class="flex flex-wrap items-center gap-2">
+        <label
+          for="receipt-date-from"
+          class="shrink-0 whitespace-nowrap text-caption text-text-muted"
+        >
+          收款日期
+        </label>
+        <DateField
+          id="receipt-date-from"
+          v-model="dateFrom"
+          class="w-[150px] shrink-0"
+          data-testid="filter-date-from"
+        />
+        <span class="shrink-0 whitespace-nowrap text-caption text-text-muted">至</span>
+        <DateField
+          id="receipt-date-to"
+          v-model="dateTo"
+          class="w-[150px] shrink-0"
+          data-testid="filter-date-to"
+        />
       </div>
       <Button variant="secondary" size="sm" data-testid="reset-filters" @click="resetFilters">
         重置筛选

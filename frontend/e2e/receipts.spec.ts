@@ -52,6 +52,10 @@ test.describe('加工费回款 — 收款单列表', () => {
     await page.getByTestId('reset-filters').click()
     await expect(table.getByText('共 8 条')).toBeVisible()
 
+    // QA F-006/F-008：筛选区「收款日期」标签横排、日期格式提示可见
+    await expect(page.locator('label[for="receipt-date-from"]')).toHaveCSS('white-space', 'nowrap')
+    await expect(page.getByText('格式 YYYY-MM-DD').first()).toBeVisible()
+
     await page.getByTestId('receipt-search').locator('input').fill('BANK-REF-0001')
     await expect(table.getByText('共 1 条')).toBeVisible()
     await expect(table.locator('tbody tr').first()).toContainText('SK-2026-0001')
@@ -73,6 +77,8 @@ test.describe('加工费回款 — 收款单列表', () => {
 test.describe('加工费回款 — 登记与核销交互', () => {
   test('选择客户后加载未结清应收单（表内金额真实断言）', async ({ page }) => {
     await openRegistration(page)
+    // QA F-008：日期控件旁回显业务格式日期（YYYY-MM-DD）
+    await expect(page.getByText('格式 YYYY-MM-DD · 2026-11-30').first()).toBeVisible()
     await chooseCustomer(page, '示例客户 A')
 
     const row1 = page.getByTestId('allocation-row-ar-001')
@@ -303,5 +309,11 @@ test.describe('加工费回款 — 移动端 390×844', () => {
       clientWidth: document.documentElement.clientWidth,
     }))
     expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth + 1)
+
+    // QA F-007：收款单列表关键列（收款单编号）min-width ≥ 96px，不再逐字竖排
+    const firstRow = page.getByTestId('receipt-list-table').locator('tbody tr').first()
+    const firstCell = await firstRow.locator('td').first().boundingBox()
+    expect(firstCell).not.toBeNull()
+    expect(firstCell?.width ?? 0).toBeGreaterThanOrEqual(96)
   })
 })
