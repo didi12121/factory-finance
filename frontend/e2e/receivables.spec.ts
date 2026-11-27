@@ -107,7 +107,7 @@ test.describe('应收账款列表 — Tab 与筛选', () => {
     await expect(page.getByText('暂无符合条件的应收单')).toBeVisible()
   })
 
-  test('顶部指标展示四组金额与统计基准（DEMO_TODAY）', async ({ page }) => {
+  test('顶部指标展示四组金额与统计基准日', async ({ page }) => {
     const metrics = page.getByTestId('receivables-metrics')
     await expect(metrics).toContainText('449,614.38')
     await expect(metrics).toContainText('47,046.51')
@@ -115,7 +115,9 @@ test.describe('应收账款列表 — Tab 与筛选', () => {
     await expect(metrics).toContainText('40,800.01')
     await expect(metrics).toContainText('统计范围：全部应收单')
     await expect(metrics).toContainText('2026-11-30')
-    await expect(metrics).toContainText('DEMO_TODAY')
+    await expect(metrics).toContainText('统计基准日')
+    // 不向用户暴露内部代号（开发术语）
+    await expect(metrics).not.toContainText('DEMO_TODAY')
   })
 })
 

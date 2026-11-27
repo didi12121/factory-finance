@@ -191,7 +191,7 @@ const columns: ColumnDef<ReceivableRow, string>[] = [
             class: 'inline-flex items-center rounded-control hover:text-brand-foreground focus-visible:outline-2',
             'aria-label': `查看应收单 ${info.row.original.statementNo}`,
           },
-          () => h(DocumentNumber, { value: info.row.original.statementNo }),
+          () => h(DocumentNumber, { value: info.row.original.statementNo, link: true }),
         ),
       ),
   }),
@@ -325,7 +325,7 @@ const createOpen = ref(false)
         <FinancialMetric label="逾期未收余额" :value="metrics.overdueOutstandingAmount" caption="已逾期且未收清合计" />
       </div>
       <p class="mt-4 text-caption text-text-muted">
-        统计范围：全部应收单（不受下方筛选影响）· 日期基准：{{ DEMO_TODAY }}（DEMO_TODAY）
+        统计范围：全部应收单（不受下方筛选影响）· 统计基准日：{{ DEMO_TODAY }}
       </p>
     </section>
 

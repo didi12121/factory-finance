@@ -85,6 +85,40 @@ describe('经营概览组件 — 点击跳转路由构造', () => {
   })
 })
 
+describe('经营概览列表 — 展示层 limit（≤ 8 条，不截断/改写 Store 数据）', () => {
+  let store: ReturnType<typeof usePrototypeStore>
+  let summary: Awaited<ReturnType<typeof store.getDashboardSummary>>
+
+  beforeEach(async () => {
+    setActivePinia(createPinia())
+    store = usePrototypeStore()
+    summary = await store.getDashboardSummary(NOV)
+  })
+
+  it('近期资金流水渲染 ≤ 8 条，且 Store 数据未被截断', async () => {
+    expect(summary.recentTransactions.length).toBeGreaterThan(8) // Store/domain 口径不被展示层改写
+    const wrapper = mount(RecentTransactions, {
+      props: { transactions: summary.recentTransactions },
+      global: { plugins: [makeRouter(), createPinia()] },
+    })
+    expect(wrapper.findAll('[data-testid="recent-transaction-row"]')).toHaveLength(8)
+  })
+
+  it('待收加工费渲染 ≤ 8 条，保持紧迫度优先顺序', async () => {
+    expect(summary.pendingReceivables.length).toBeGreaterThan(8)
+    const wrapper = mount(PendingReceivables, {
+      props: { receivables: summary.pendingReceivables },
+      global: { plugins: [makeRouter(), createPinia()] },
+    })
+    expect(wrapper.findAll('[data-testid="pending-receivable-row"]')).toHaveLength(8)
+    // 截取保持 domain 紧迫度排序（compareReceivableUrgency）：首条即全量首条
+    const firstId = summary.pendingReceivables[0]?.receivable.id
+    expect(wrapper.find('[data-testid="pending-receivable-row"]').attributes('href')).toBe(
+      `/business/receivables/${firstId}`,
+    )
+  })
+})
+
 describe('日期筛选真实改变统计期间', () => {
   it('切换预设会更新 filter（进而改变统计期间）', async () => {
     const wrapper = mount(DateRangeFilter, { props: { modelValue: defaultDashboardFilter() } })

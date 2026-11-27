@@ -174,6 +174,19 @@ PageHeader、PageToolbar、DataTable、TablePagination、SearchInput、FilterBar
 
 列定义、排序（金额列使用 `compareAmounts` 精确比较）、分页、空数据、加载状态，并预留服务端分页能力（`manualPagination`/`manualSorting` 契约见 `DataTable.vue` 头注释）。表头与内容对齐一致（左对齐显式 `text-left`，金额列右对齐 + tabular-nums）；排序支持键盘触发并输出 `aria-sort`；数据刷新导致页码越界时自动钳制。
 
+### 6.5 业务日期组件（Phase 0.3 新增，`components/ui/date/`）
+
+| 组件 | 格式 | 说明 |
+| --- | --- | --- |
+| BusinessDateInput | YYYY-MM-DD | 手动输入 + 日历（reka-ui）+ 清空 + 键盘 + min/max + 非法日期/闰年校验 |
+| AccountingMonthInput | YYYY-MM | 会计月份选择（月网格） |
+| OperationDateTimeInput | YYYY-MM-DD HH:mm | 操作时间（统一展示格式，消除 ISO 'T' 分隔符） |
+| DateRangeInput | YYYY-MM-DD 至 YYYY-MM-DD | 日期区间筛选（含顺序校验） |
+
+- 日期语义与校验契约：UI 组件负责输入体验与即时校验，**Store/Domain 层为最终业务校验**
+  （如实际收款日期 ≤ 演示业务基准日的强制规则）；空值 =「无到期日期」语义（留空可清空）。
+- 页面不得向用户暴露 DEMO_TODAY、ISO 分隔符等开发术语（统一「统计基准日」文案）。
+
 ## 7. Design System Showcase
 
 `/dev/design-system` 开发环境页面集中展示 Color Tokens、Typography、Buttons、Inputs、Select、Tabs、DataTable、Dialog、DetailSheet、FinancialMetric、MoneyText、FinancialStatus、EmptyState、LoadingState、ErrorState。展示数据必须是**明确标记的虚构测试数据**，禁止真实客户姓名与真实账目；页面仅在开发或明确启用的测试环境可用。

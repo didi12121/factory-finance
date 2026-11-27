@@ -52,6 +52,18 @@ export interface DashboardSourceState {
 /** 支出分类固定顺序（仅输出有发生额的分类） */
 const EXPENSE_CATEGORIES: TransactionType[] = ['SALARY', 'UTILITIES', 'PURCHASE', 'OTHER']
 
+/**
+ * 收入确认口径（报告层防御性过滤，A3）：
+ * 当前原型**不支持未来收入确认**——会计月份晚于 DEMO_TODAY 所属月、或对账日期
+ * （收入确认日期）晚于 DEMO_TODAY 的应收单，不得进入截至当前业务日期的已确认收入。
+ * 未来月/未来日期单据**允许创建**（createReceivable 不拒绝，视为未确认/未来期间单据），
+ * 仅在收入确认口径上被本过滤排除（覆盖新建单据、直接注入状态/迁移数据等场景）；
+ * 禁止据此引入预计收入/预计回款等未确认会计规则。
+ */
+function isRecognizedRevenue(receivable: Receivable): boolean {
+  return receivable.accountingMonth <= DEMO_TODAY.slice(0, 7) && receivable.statementDate <= DEMO_TODAY
+}
+
 /** 外部收付流水（RECORDED 且非内部转账）：收付趋势与实际支出统计口径 */
 function isExternalCashFlow(txn: FundTransaction): boolean {
   return txn.status === 'RECORDED' && txn.transactionType !== 'INTERNAL_TRANSFER'
@@ -89,11 +101,12 @@ export function computeDashboardSummary(
     ),
   )
 
-  // 期间加工收入：权责发生制，按 accountingMonth 归属（整月计入一次，不按天摊分）
+  // 期间加工收入：权责发生制，按 accountingMonth 归属（整月计入一次，不按天摊分）；
+  // 报告层防御性过滤：未来月/未来确认日期单据不计入截至当前业务日期的已确认收入
   const periodProcessingFeeIncome = canonicalAmount2(
     sumAmounts(
       source.receivables
-        .filter((receivable) => isAccountingMonthInPeriod(receivable.accountingMonth, period))
+        .filter((receivable) => isRecognizedRevenue(receivable) && isAccountingMonthInPeriod(receivable.accountingMonth, period))
         .map((receivable) => receivable.originalAmount),
     ),
   )

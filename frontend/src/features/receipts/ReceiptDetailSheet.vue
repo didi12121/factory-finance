@@ -16,6 +16,7 @@ import TableHeader from '@/components/ui/table/TableHeader.vue'
 import TableRow from '@/components/ui/table/TableRow.vue'
 import DetailSheet from '@/components/shared/DetailSheet.vue'
 import EmptyState from '@/components/shared/EmptyState.vue'
+import { formatOperationDateTime } from '@/components/ui/date'
 import type { EntityId, ReceiptDetail } from '@/features/prototype/contracts'
 import { sumAmounts } from '@/features/prototype/domain/amounts'
 import { usePrototypeStore } from '@/features/prototype/stores/prototype'
@@ -136,7 +137,7 @@ function statementNoOf(receivableId: EntityId): string {
             <TableRow v-for="item in props.detail.allocations" :key="item.id">
               <TableCell><DocumentNumber :value="statementNoOf(item.receivableId)" /></TableCell>
               <TableCell align="right"><MoneyText :value="item.allocationAmount" size="table" /></TableCell>
-              <TableCell>{{ item.allocatedAt }}</TableCell>
+              <TableCell class="tabular">{{ formatOperationDateTime(item.allocatedAt) }}</TableCell>
             </TableRow>
           </TableBody>
         </Table>

@@ -2,11 +2,12 @@
  * 资金流水 DataTable 列定义（TanStack Table）—— Agent E / P02-E。
  *
  * 列契约（复用共享 DataTable）：
- * - 金额列（收入金额/支出金额）必须使用 `amountSortingFn`（compareAmounts 精确比较），
+ * - 金额列（流入金额/流出金额）必须使用 `amountSortingFn`（compareAmounts 精确比较），
  *   禁止按千分位格式化字符串做字典序排序；金额列右对齐 + tabular-nums（meta.align='right'）；
- * - IN 流水进收入金额列、OUT 流水进支出金额列（单条金额恒正，方向由 direction 表达），
+ * - IN 流水进流入金额列、OUT 流水进流出金额列（单条金额恒正，方向由 direction 表达），
  *   非对应方向显示 '—'，排序取值为 '0'（见 transactionsModel.incomeSortValue/outcomeSortValue）；
- * - 业务类型 ≠ 收入概念：加工费回款/股东出资仅是业务性质，金额列标题为"收入/支出"资金事实。
+ * - 列名采用资金事实语义（流入/流出金额），避免误认为会计收入/支出
+ *   （业务类型 ≠ 收入概念：加工费回款/股东出资仅是业务性质）。
  */
 
 import { h } from 'vue'
@@ -81,7 +82,7 @@ export function buildTransactionColumns(
     {
       id: 'incomeAmount',
       accessorFn: (row) => incomeSortValue(row),
-      header: '收入金额',
+      header: '流入金额',
       meta: { align: 'right' },
       sortingFn: amountSortingFn,
       cell: (info) =>
@@ -92,7 +93,7 @@ export function buildTransactionColumns(
     {
       id: 'outcomeAmount',
       accessorFn: (row) => outcomeSortValue(row),
-      header: '支出金额',
+      header: '流出金额',
       meta: { align: 'right' },
       sortingFn: amountSortingFn,
       cell: (info) =>

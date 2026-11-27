@@ -26,7 +26,7 @@ const items = [
 <template>
   <DropdownMenu :items="items">
     <template #trigger>
-      <Button variant="primary" data-testid="new-record-trigger">
+      <Button variant="primary" class="whitespace-nowrap" data-testid="new-record-trigger">
         <Plus class="size-4" aria-hidden="true" />
         新建记录
       </Button>

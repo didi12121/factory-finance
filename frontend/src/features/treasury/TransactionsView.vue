@@ -21,6 +21,7 @@ import { useRouter } from 'vue-router'
 
 import Button from '@/components/ui/button/Button.vue'
 import Select from '@/components/ui/select/Select.vue'
+import { DateRangeInput } from '@/components/ui/date'
 import DemoModeBanner from '@/components/shared/DemoModeBanner.vue'
 import DetailSheet from '@/components/shared/DetailSheet.vue'
 import DataTable from '@/components/shared/DataTable.vue'
@@ -244,18 +245,13 @@ function viewRelatedReceivables(): void {
 
       <div class="flex items-center gap-2">
         <span class="text-caption text-text-muted">交易日期</span>
-        <input
-          v-model="filters.dateFrom"
-          type="date"
-          class="h-control rounded-control border border-border bg-surface px-3 text-body text-text-primary focus-visible:border-brand"
-          aria-label="交易开始日期"
-        />
-        <span class="text-caption text-text-muted">至</span>
-        <input
-          v-model="filters.dateTo"
-          type="date"
-          class="h-control rounded-control border border-border bg-surface px-3 text-body text-text-primary focus-visible:border-brand"
-          aria-label="交易结束日期"
+        <DateRangeInput
+          :from="filters.dateFrom"
+          :to="filters.dateTo"
+          from-aria-label="交易开始日期"
+          to-aria-label="交易结束日期"
+          @update:from="filters.dateFrom = $event"
+          @update:to="filters.dateTo = $event"
         />
       </div>
 

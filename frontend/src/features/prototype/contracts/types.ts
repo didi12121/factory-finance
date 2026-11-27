@@ -1,5 +1,6 @@
 /**
- * Prototype Contract V1 — 基础类型与实体（共享数据契约，不实现业务逻辑）。
+ * Prototype Contract V1（V1.2 增量：ReceivableSummary.integrity 完整性诊断字段，
+ * 见 ReceivableIntegrityDiagnostic）— 基础类型与实体（共享数据契约，不实现业务逻辑）。
  *
  * 金额红线：
  * - 所有金额字段一律 `DecimalString`（十进制字符串，DECIMAL(18,2) 业务金额：
@@ -201,13 +202,31 @@ export interface ReceiptAllocation {
 }
 
 /**
+ * 应收完整性诊断（V1.2 契约新增，可选字段 `ReceivableSummary.integrity`）。
+ *
+ * 语义：派生层对「有效核销合计 > 原始应收」等数据异常的**显式暴露**，
+ * 禁止静默钳制掩盖异常（展示口径 outstandingAmount 仍恒 ≥ 0，但异常必须被标记）。
+ * 原始业务事实（原始应收、实际核销合计）保留不变，派生值与异常标记并存。
+ * 写时校验（create/confirm 拒绝超额核销）仍是第一道防线，本诊断为派生层防御性暴露。
+ */
+export interface ReceivableIntegrityDiagnostic {
+  /** OK = 有效核销合计 ≤ 原始应收；OVER_ALLOCATED = 超额核销（数据异常） */
+  status: 'OK' | 'OVER_ALLOCATED'
+  /** 超额差额 = 有效核销合计 − 原始应收（DECIMAL(18,2)，恒 ≥ 0；OK 时 '0.00'） */
+  overAllocatedAmount: DecimalString
+}
+
+/**
  * 应收派生统计（由核销明细汇总派生，禁止冗余存储在应收实体）。
  * 逾期是独立派生属性，与回款状态（ReceivableStatus）互不替代。
  */
 export interface ReceivableSummary {
-  /** 已收金额 = Σ该应收单的核销明细金额（DECIMAL(18,2)） */
+  /** 已收金额 = Σ该应收单的核销明细金额（DECIMAL(18,2)；超额核销时保留真实合计，不截断） */
   paidAmount: DecimalString
-  /** 未收金额 = 原始应收金额 − 已收金额（DECIMAL(18,2)，恒 ≥ 0） */
+  /**
+   * 未收金额 = 原始应收金额 − 已收金额（DECIMAL(18,2)，展示口径恒 ≥ 0）。
+   * 超额核销时展示为 '0.00' 但**不得据此认定数据正常**——异常由 integrity 显式标记。
+   */
   outstandingAmount: DecimalString
   /** 回款状态：UNPAID / PARTIALLY_PAID / SETTLED（由已收金额派生） */
   status: ReceivableStatus
@@ -215,6 +234,8 @@ export interface ReceivableSummary {
   isOverdue: boolean
   /** 派生计算基准日（统一使用 DEMO_TODAY，禁止真实当前时间） */
   asOf: LocalDate
+  /** 完整性诊断（V1.2 新增，可选）：超额核销等异常的显式暴露；派生实现恒提供 */
+  integrity?: ReceivableIntegrityDiagnostic
 }
 
 /** 应收组合视图（实体 + 派生统计，供列表/详情直接使用） */
