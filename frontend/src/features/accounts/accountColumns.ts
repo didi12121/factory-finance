@@ -38,7 +38,7 @@ export function buildAccountColumns(ctx: AccountColumnsContext): ColumnDef<FundA
     },
     {
       id: 'accountName',
-      accessorFn: (row) => row.accountName,
+      accessorFn: (row) => row.name,
       header: '账户名称',
       cell: (info) => h('span', { class: TEXT_CELL }, info.getValue()),
     },

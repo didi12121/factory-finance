@@ -47,3 +47,11 @@
 | D2 | 服务端排序 | 资金流水契约仅分页+筛选（无排序参数）；表格排序为当前页内排序，服务端排序待契约补充 |
 | D3 | E2E 运行环境 | 集成阶段需为 preview/dev server 打通 `/api/v1` 代理或配置 `VITE_API_BASE_URL`，并提供种子管理员（`PHASE1_E2E_USERNAME/PASSWORD`） |
 | D4 | DTO 字段对齐 | 前端 DTO 按 `docs/API_CONTRACT.md` 第 10 节 + `docs/DATABASE_DESIGN.md` 命名（如 `AuthUser.displayName`、`FundAccount.currentBalance`、撤销信息 `voidedAt`）；集成阶段与后端 A/B 实际返回逐字段核对 |
+
+## Phase 1 集成阶段退役/适配记录（主 Agent，2026-11-27）
+
+- **E2E 退役** `qa-idempotency.spec.ts`：测试对象为 Phase 0.x Mock Store 的收款/核销流程（原型页已由真实 API 页面替换）；其覆盖语义（重复确认幂等、同键异参 CONFLICT、分隔符冲突场景）已由后端 `ContributionIT/ExpenseIT/TransferIT`（幂等+并发）与 `phase1-acceptance.spec.ts` 全 UI 流程覆盖。
+- **E2E 退役** `screenshots.spec.ts`：Phase 0.2/0.3 交付截图已生成并归档（`artifacts/screenshots/phase-0.2|0.3/`）；Phase 1 按任务不要求全量截图（仅关键业务页面截图，见交付报告）。其页面交互断言由 `phase1-acceptance.spec.ts` 覆盖。
+- **CORS 集成修复**：浏览器 POST 携带 Origin（Playwright 预览端口）被 CORS 过滤器 403；修复为 dev/test 允许本机回环来源模式（生产保持严格白名单），`CorsPolicyIT` 增补断言。
+- **报表查询日期语义修正**：dashboard/transactions 查询区间不再拒绝未来结束日（业务写日期仍强制 ≤ 当前业务日期）；根因=前端本月区间结束日为月末。
+- **全局登录态**：e2e 注入 storageState（global-setup 登录），phase1-auth 自行清空测登录流程。

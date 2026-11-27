@@ -93,10 +93,10 @@ export function validateContributionForm(values: EntryFormValues): Record<string
 
 export function toContributionInput(values: EntryFormValues): ContributionInput {
   return {
-    shareholderId: values.shareholderId ?? '',
-    accountId: values.accountId ?? '',
+    shareholderId: Number(values.shareholderId ?? ''),
+    accountId: Number(values.accountId ?? ''),
     amount: normalizeAmount(values.amount ?? '') ?? '0',
-    bizDate: (values.bizDate ?? '').trim(),
+    contributionDate: (values.bizDate ?? '').trim(),
     remark: (values.remark ?? '').trim() === '' ? null : (values.remark ?? '').trim(),
   }
 }
@@ -127,10 +127,11 @@ export function validateExpenseForm(values: EntryFormValues): Record<string, str
 export function toExpenseInput(values: EntryFormValues): ExpenseInput {
   return {
     category: values.category as ExpenseCategory,
-    accountId: values.accountId ?? '',
+    content: (values.content ?? '').trim(),
+    payDate: (values.bizDate ?? '').trim(),
+    accountId: Number(values.accountId ?? ''),
     amount: normalizeAmount(values.amount ?? '') ?? '0',
-    bizDate: (values.bizDate ?? '').trim(),
-    counterparty: (values.counterparty ?? '').trim() === '' ? null : (values.counterparty ?? '').trim(),
+    payee: (values.counterparty ?? '').trim() === '' ? null : (values.counterparty ?? '').trim(),
     remark: (values.remark ?? '').trim() === '' ? null : (values.remark ?? '').trim(),
   }
 }
@@ -162,10 +163,10 @@ export function validateTransferForm(values: EntryFormValues): Record<string, st
 
 export function toTransferInput(values: EntryFormValues): TransferInput {
   return {
-    fromAccountId: values.fromAccountId ?? '',
-    toAccountId: values.toAccountId ?? '',
+    transferDate: (values.bizDate ?? '').trim(),
+    fromAccountId: Number(values.fromAccountId ?? ''),
+    toAccountId: Number(values.toAccountId ?? ''),
     amount: normalizeAmount(values.amount ?? '') ?? '0',
-    bizDate: (values.bizDate ?? '').trim(),
     remark: (values.remark ?? '').trim() === '' ? null : (values.remark ?? '').trim(),
   }
 }
@@ -175,7 +176,7 @@ export function toTransferInput(values: EntryFormValues): TransferInput {
 /** 账户下拉选项（停用账户禁用：不可新增流水） */
 export function accountOptions(accounts: FundAccount[]): { label: string; value: string; disabled?: boolean }[] {
   return accounts.map((account) => ({
-    label: account.status === 'ENABLED' ? account.accountName : `${account.accountName}（已停用）`,
+    label: account.status === 'ENABLED' ? account.name : `${account.name}（已停用）`,
     value: account.id,
     disabled: account.status !== 'ENABLED',
   }))

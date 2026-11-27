@@ -7,10 +7,13 @@ import { expect, test } from '@playwright/test'
 
 import { E2E_PASSWORD, E2E_USERNAME, login } from './phase1-helpers'
 
+// 认证流程需未登录态（全局 storageState 在此清空）
+test.use({ storageState: { cookies: [], origins: [] } })
+
 test.describe('Phase 1 认证（真实 API）', () => {
   test('未登录访问业务页 → 登录页并携带回跳目标', async ({ page }) => {
     await page.goto('/treasury/accounts')
-    await expect(page).toHaveURL(/\/login\?redirect=%2Ftreasury%2Faccounts/)
+    await expect(page).toHaveURL(/\/login\?redirect=(%2F|\/)treasury(%2F|\/)accounts/)
     await expect(page.getByTestId('login-panel')).toBeVisible()
   })
 
@@ -43,6 +46,6 @@ test.describe('Phase 1 认证（真实 API）', () => {
     await expect(page).toHaveURL(/\/login/)
 
     await page.goto('/treasury/transactions')
-    await expect(page).toHaveURL(/\/login\?redirect=%2Ftreasury%2Ftransactions/)
+    await expect(page).toHaveURL(/\/login\?redirect=(%2F|\/)treasury(%2F|\/)transactions/)
   })
 })

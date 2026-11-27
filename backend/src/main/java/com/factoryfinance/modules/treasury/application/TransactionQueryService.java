@@ -68,9 +68,6 @@ public class TransactionQueryService {
         if (from != null && to != null && from.isAfter(to)) {
             throw TreasuryValidation.invalid("dateFrom", "起始日期不能晚于结束日期");
         }
-        if (to != null) {
-            TreasuryValidation.requireNotAfterToday(businessTime, to, "dateTo");
-        }
         TxnType txnType = null;
         if (type != null && !type.isBlank()) {
             txnType = TxnType.fromCode(type.trim())

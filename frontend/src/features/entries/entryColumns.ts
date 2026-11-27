@@ -127,7 +127,7 @@ export function buildContributionColumns(ctx: {
   return [
     {
       id: 'contributionNo',
-      accessorFn: (row) => row.contributionNo,
+      accessorFn: (row) => row.docNo,
       header: '出资单号',
       cell: (info) => h(DocumentNumber, { value: info.getValue() }),
     },
@@ -146,7 +146,7 @@ export function buildContributionColumns(ctx: {
       cell: (info) => h('span', { class: TEXT_CELL }, info.getValue()),
     },
     amountColumn((row) => row.amount),
-    bizDateColumn((row) => row.bizDate),
+    bizDateColumn((row) => row.contributionDate),
     statusColumn((row) => row.status),
     createdAtColumn((row) => row.createdAt),
     actionsColumn((row) => ctx.onVoid(row), (row) => row.status === 'VOIDED'),
@@ -162,7 +162,7 @@ export function buildExpenseColumns(ctx: {
   return [
     {
       id: 'expenseNo',
-      accessorFn: (row) => row.expenseNo,
+      accessorFn: (row) => row.docNo,
       header: '支出单号',
       cell: (info) => h(DocumentNumber, { value: info.getValue() }),
     },
@@ -182,7 +182,7 @@ export function buildExpenseColumns(ctx: {
     },
     {
       id: 'counterparty',
-      accessorFn: (row) => row.counterparty ?? '',
+      accessorFn: (row) => row.payee ?? '',
       header: '交易对手',
       enableSorting: false,
       cell: (info) =>
@@ -193,7 +193,7 @@ export function buildExpenseColumns(ctx: {
         ),
     },
     amountColumn((row) => row.amount),
-    bizDateColumn((row) => row.bizDate),
+    bizDateColumn((row) => row.payDate),
     statusColumn((row) => row.status),
     createdAtColumn((row) => row.createdAt),
     actionsColumn((row) => ctx.onVoid(row), (row) => row.status === 'VOIDED'),
@@ -209,7 +209,7 @@ export function buildTransferColumns(ctx: {
   return [
     {
       id: 'transferNo',
-      accessorFn: (row) => row.transferNo,
+      accessorFn: (row) => row.docNo,
       header: '转账单号',
       cell: (info) => h(DocumentNumber, { value: info.getValue() }),
     },
@@ -228,7 +228,7 @@ export function buildTransferColumns(ctx: {
       cell: (info) => h('span', { class: TEXT_CELL }, info.getValue()),
     },
     amountColumn((row) => row.amount),
-    bizDateColumn((row) => row.bizDate),
+    bizDateColumn((row) => row.transferDate),
     statusColumn((row) => row.status),
     createdAtColumn((row) => row.createdAt),
     actionsColumn((row) => ctx.onVoid(row), (row) => row.status === 'VOIDED'),

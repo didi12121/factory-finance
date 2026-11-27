@@ -33,8 +33,9 @@ public class AccountsController {
     @GetMapping
     public ApiResponse<PageResult<AccountView>> list(
             @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer size) {
-        return ApiResponse.success(accountService.list(page, size));
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String keyword) {
+        return ApiResponse.success(accountService.list(page, size, keyword));
     }
 
     @PostMapping

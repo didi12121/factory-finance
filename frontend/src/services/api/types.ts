@@ -152,12 +152,13 @@ export interface ShareholderInput {
 export interface FundAccount {
   id: EntityId
   accountNo: string
-  accountName: string
+  name: string
   accountType: FundAccountType
   /** 本位币，第一版固定 CNY */
   currency: string
   /** 期初余额（DECIMAL(18,2)） */
   openingBalance: DecimalString
+  openingDate: string
   status: EnableStatus
   /**
    * 当前余额（= 期初余额 + Σ有效流入 − Σ有效流出，由流水重算）。
@@ -168,86 +169,102 @@ export interface FundAccount {
   createdAt: IsoDateTime
 }
 
-/** 资金账户新增/更新载荷 */
+/** 资金账户新增/更新载荷（字段名对齐后端 CreateAccountRequest） */
 export interface FundAccountInput {
-  accountName: string
+  name: string
   accountType: FundAccountType
   openingBalance: DecimalString
+  openingDate: string
   remark?: string | null
   status?: EnableStatus
 }
 
 /* ------------------------------ 业务单据 ----------------------------- */
 
-/** 股东出资单（确认时同事务生成 IN 流水） */
+/** 股东出资单（确认时同事务生成 IN 流水；字段名对齐后端 ContributionView） */
 export interface ContributionRecord {
-  id: EntityId
-  contributionNo: string
-  shareholderId: EntityId
-  accountId: EntityId
+  id?: EntityId
+  docNo: string
+  shareholderName: string
+  contributionDate: LocalDate
+  accountName: string
   amount: DecimalString
-  bizDate: LocalDate
   remark: string | null
   status: RecordStatus
+  voidNo?: string | null
+  voidDate?: string | null
   createdAt: IsoDateTime
-  /** 撤销时间；未撤销为 null */
-  voidedAt: IsoDateTime | null
+  createdBy?: string
 }
 
-/** 股东出资录入载荷 */
+/** 股东出资录入载荷（字段名对齐后端 CreateContributionRequest） */
 export interface ContributionInput {
-  shareholderId: EntityId
-  accountId: EntityId
+  shareholderId: number
+  accountId: number
+  contributionDate: LocalDate
   amount: DecimalString
-  bizDate: LocalDate
   remark?: string | null
 }
 
-/** 支出单（确认时同事务生成 OUT 流水） */
+/** 支出单（确认时同事务生成 OUT 流水；字段名对齐后端 ExpenseView） */
 export interface ExpenseRecord {
-  id: EntityId
-  expenseNo: string
+  id?: EntityId
+  docNo: string
   category: ExpenseCategory
-  accountId: EntityId
+  content: string
+  bizMonth?: string | null
+  payDate: LocalDate
+  accountName: string
   amount: DecimalString
-  bizDate: LocalDate
-  counterparty: string | null
+  payee?: string | null
+  employeeName?: string | null
+  salaryMonth?: string | null
+  attachmentRef?: string | null
   remark: string | null
   status: RecordStatus
+  voidNo?: string | null
+  voidDate?: string | null
   createdAt: IsoDateTime
-  voidedAt: IsoDateTime | null
+  createdBy?: string
 }
 
-/** 支出录入载荷 */
+/** 支出录入载荷（字段名对齐后端 CreateExpenseRequest） */
 export interface ExpenseInput {
   category: ExpenseCategory
-  accountId: EntityId
+  content: string
+  bizMonth?: string | null
+  payDate: LocalDate
+  accountId: number
   amount: DecimalString
-  bizDate: LocalDate
-  counterparty?: string | null
+  payee?: string | null
+  employeeName?: string | null
+  salaryMonth?: string | null
+  attachmentRef?: string | null
   remark?: string | null
 }
 
-/** 内部转账单（确认时同事务生成 OUT+IN 成对流水；不产生收支） */
+/** 内部转账单（确认时同事务生成 OUT+IN 成对流水；字段名对齐后端 TransferView） */
 export interface TransferRecord {
-  id: EntityId
-  transferNo: string
-  fromAccountId: EntityId
-  toAccountId: EntityId
+  id?: EntityId
+  docNo: string
+  transferDate: LocalDate
+  fromAccountName: string
+  toAccountName: string
   amount: DecimalString
-  bizDate: LocalDate
   remark: string | null
   status: RecordStatus
+  voidNo?: string | null
+  voidDate?: string | null
   createdAt: IsoDateTime
-  voidedAt: IsoDateTime | null
+  createdBy?: string
 }
 
-/** 转账录入载荷 */
+/** 转账录入载荷（字段名对齐后端 CreateTransferRequest） */
 export interface TransferInput {
-  fromAccountId: EntityId
-  toAccountId: EntityId
+  transferDate: LocalDate
+  fromAccountId: number
+  toAccountId: number
   amount: DecimalString
-  bizDate: LocalDate
   remark?: string | null
 }
 
@@ -310,24 +327,27 @@ export interface ExpenseCategoryStat {
   amount: DecimalString
 }
 
-/** 经营概览统计（GET /treasury/dashboard/summary?from&to） */
+/** 资金收付趋势点（后端 TrendPoint） */
+export interface CashFlowTrendPoint {
+  date: string
+  inflow: DecimalString
+  outflow: DecimalString
+  correctionIn: DecimalString
+  correctionOut: DecimalString
+}
+
+/** 经营概览统计（GET /treasury/dashboard/summary?from&to）——字段名对齐后端 DashboardSummary */
 export interface DashboardSummary {
-  /** 统计基准日（服务器业务日期） */
-  asOf: LocalDate
-  /** 统计期间 */
-  period: { from: LocalDate; to: LocalDate }
-  /** 当前资金余额（Σ账户余额，可由流水重算核对） */
-  totalFundBalance: DecimalString
-  /** 期间股东出资（资金事实；≠ 营业收入） */
-  periodContribution: DecimalString
-  /** 期间资金流入（实际收款资金事实） */
-  periodInflow: DecimalString
-  /** 期间实际支出（资金事实） */
-  periodActualExpenses: DecimalString
-  /** 支出分类（按分类聚合） */
-  expenseBreakdown: ExpenseCategoryStat[]
-  /** 资金收付趋势（按日） */
-  cashFlowTrend: CashFlowTrendPoint[]
-  /** 近期资金流水（业务日期倒序） */
+  from: LocalDate
+  to: LocalDate
+  currentBalance: DecimalString
+  periodContributionTotal: DecimalString
+  periodExpenseTotal: DecimalString
+  periodExternalInflow: DecimalString
+  periodExternalOutflow: DecimalString
+  calibers: Record<string, string>
+  trend: CashFlowTrendPoint[]
   recentTransactions: FundTransaction[]
+  /** 支出分类（后端暂未提供，待开通） */
+  expenseBreakdown?: ExpenseCategoryStat[]
 }

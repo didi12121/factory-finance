@@ -70,6 +70,7 @@ const formFields: FormFieldSchema[] = [
     ],
   },
   { key: 'openingBalance', label: '期初余额', type: 'amount', required: true },
+  { key: 'openingDate', label: '期初日期', type: 'date', required: true },
   { key: 'remark', label: '备注', type: 'text', placeholder: '选填' },
   {
     key: 'status',
@@ -166,7 +167,7 @@ function setStatusFilter(value: string): void {
     <ConfirmDialog
       v-model:open="page.toggleDialogOpen.value"
       title="确认变更账户状态"
-      :description="`确认${page.toggleTarget.value?.status === 'ENABLED' ? '停用' : '启用'}账户「${page.toggleTarget.value?.accountName ?? ''}」？停用后不可新增流水，历史流水保留。`"
+      :description="`确认${page.toggleTarget.value?.status === 'ENABLED' ? '停用' : '启用'}账户「${page.toggleTarget.value?.name ?? ''}」？停用后不可新增流水，历史流水保留。`"
       :confirm-text="page.toggleTarget.value?.status === 'ENABLED' ? '停用' : '启用'"
       @confirm="page.confirmToggleStatus"
     />

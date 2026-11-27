@@ -124,7 +124,7 @@ public class ContributionService {
         throw BusinessException.conflict("单据编号并发冲突，请稍后重试");
     }
 
-    public PageResult<ContributionView> list(Integer page, Integer size,
+    public PageResult<ContributionView> list(Integer page, Integer size, String keyword,
                                              String dateFrom, String dateTo,
                                              Long shareholderId, Long accountId, String status) {
         TreasuryValidation.requirePaging(page, size);
@@ -138,8 +138,10 @@ public class ContributionService {
 
         long pageNo = page == null ? 1 : page;
         long pageSize = size == null ? 20 : size;
+        String kw = keyword == null ? null : keyword.trim();
         Page<ShareholderContribution> result = contributionMapper.selectPage(new Page<>(pageNo, pageSize),
                 new QueryWrapper<ShareholderContribution>()
+                        .and(kw != null && !kw.isEmpty(), w -> w.like("doc_no", kw).or().like("remark", kw))
                         .ge(from != null, "contribution_date", from)
                         .le(to != null, "contribution_date", to)
                         .eq(shareholderId != null, "shareholder_id", shareholderId)

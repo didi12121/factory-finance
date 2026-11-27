@@ -26,12 +26,12 @@ const adapter: EntryPageAdapter<TransferRecord> = {
   entityLabel: '转账',
   list: (query) => treasuryApi.listTransfers(query),
   create: (values) => treasuryApi.createTransfer(toTransferInput(values)),
-  voidRecord: (id) => treasuryApi.voidTransfer(id),
+  voidRecord: (id, voidDate, reason) => treasuryApi.voidTransfer(id, voidDate, reason),
   validate: validateTransferForm,
   emptyForm: () => ({ fromAccountId: '', toAccountId: '', amount: '', bizDate: '', remark: '' }),
-  recordNo: (row) => row.transferNo,
+  recordNo: (row) => row.docNo,
   isVoided: (row) => row.status === 'VOIDED',
-  recordId: (row) => row.id,
+  recordId: (row) => row.id ?? row.docNo,
 }
 
 const page = useEntryPage(adapter, ['fromAccountId', 'toAccountId', 'amount', 'bizDate', 'remark'])
@@ -84,11 +84,11 @@ const formFields = computed<FormFieldSchema[]>(() => [
 
 // 展示行：字典名称解析为数据装配（字典晚到时展示行重建 → data 身份变化 → 表格重建）
 const displayRows = computed<TransferDisplayRow[]>(() => {
-  const accountNames = new Map(accounts.value.map((account) => [account.id, account.accountName]))
+  const accountNames = new Map(accounts.value.map((account) => [account.id, account.name]))
   return page.list.rows.value.map((row) => ({
     ...row,
-    fromAccountName: accountNames.get(row.fromAccountId) ?? row.fromAccountId,
-    toAccountName: accountNames.get(row.toAccountId) ?? row.toAccountId,
+    fromAccountName: accountNames.get(row.fromAccountName) ?? row.fromAccountName,
+    toAccountName: accountNames.get(row.toAccountName) ?? row.toAccountName,
   }))
 })
 
@@ -195,7 +195,7 @@ function setStatusFilter(value: string): void {
     <ConfirmDialog
       v-model:open="page.voidDialogOpen.value"
       title="确认撤销转账单"
-      :description="`撤销将保留原单据并生成反向流水，且不可重复撤销。单据：${page.voidTarget.value?.transferNo ?? ''}。`"
+      :description="`撤销将保留原单据并生成反向流水，且不可重复撤销。单据：${page.voidTarget.value?.docNo ?? ''}。`"
       confirm-text="确认撤销"
       danger
       @confirm="page.confirmVoid"

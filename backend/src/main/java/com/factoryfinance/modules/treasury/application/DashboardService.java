@@ -66,7 +66,6 @@ public class DashboardService {
         LocalDate from = fromRaw == null || fromRaw.isBlank()
                 ? to.minusDays(29)
                 : TreasuryValidation.parseDate(fromRaw, "from");
-        TreasuryValidation.requireNotAfterToday(businessTime, to, "to");
         if (from.isAfter(to)) {
             throw TreasuryValidation.invalid("from", "起始日期不能晚于结束日期");
         }

@@ -51,12 +51,14 @@ public class AccountService {
         this.businessTime = businessTime;
     }
 
-    public PageResult<AccountView> list(Integer page, Integer size) {
+    public PageResult<AccountView> list(Integer page, Integer size, String keyword) {
         TreasuryValidation.requirePaging(page, size);
         long pageNo = page == null ? 1 : page;
         long pageSize = size == null ? 20 : size;
+        String kw = keyword == null ? null : keyword.trim();
         Page<FundAccount> result = accountMapper.selectPage(new Page<>(pageNo, pageSize),
                 new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<FundAccount>()
+                        .and(kw != null && !kw.isEmpty(), w -> w.like("name", kw).or().like("account_no", kw))
                         .orderByAsc("id"));
         Map<Long, BigDecimal> nets = netByAccount();
         List<AccountView> items = result.getRecords().stream()

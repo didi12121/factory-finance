@@ -87,25 +87,25 @@ export function buildWorkbenchMetrics(summary: DashboardSummary): WorkbenchMetri
     {
       key: 'fundBalance',
       label: '当前资金余额',
-      value: summary.totalFundBalance,
+      value: summary.currentBalance,
       caption: '资金结余 · 可由流水重算',
     },
     {
       key: 'periodContribution',
       label: '期间股东出资',
-      value: summary.periodContribution,
+      value: summary.periodContributionTotal,
       caption: '资金事实 · ≠ 营业收入',
     },
     {
       key: 'periodInflow',
       label: '期间资金流入',
-      value: summary.periodInflow,
+      value: summary.periodExternalInflow,
       caption: '实际收款 · 按发生日',
     },
     {
       key: 'periodExpenses',
       label: '期间实际支出',
-      value: summary.periodActualExpenses,
+      value: summary.periodExpenseTotal,
       caption: '资金事实 · 按发生日',
     },
     {

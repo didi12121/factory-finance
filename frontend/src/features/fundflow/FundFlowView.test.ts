@@ -27,10 +27,10 @@ const txn: FundTransaction = {
 const account: FundAccount = {
   id: 'acct-1',
   accountNo: 'FA-001',
-  accountName: '现金账户',
+  name: '现金账户',
   accountType: 'CASH',
   currency: 'CNY',
-  openingBalance: '0.00',
+  openingDate: '2026-11-27', openingBalance: '0.00',
   status: 'ENABLED',
   currentBalance: '1850.39',
   remark: null,

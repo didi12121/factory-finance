@@ -26,12 +26,12 @@ const adapter: EntryPageAdapter<ExpenseRecord> = {
   entityLabel: '支出',
   list: (query) => treasuryApi.listExpenses(query),
   create: (values) => treasuryApi.createExpense(toExpenseInput(values)),
-  voidRecord: (id) => treasuryApi.voidExpense(id),
+  voidRecord: (id, voidDate, reason) => treasuryApi.voidExpense(id, voidDate, reason),
   validate: validateExpenseForm,
   emptyForm: () => ({ category: '', accountId: '', amount: '', bizDate: '', counterparty: '', remark: '' }),
-  recordNo: (row) => row.expenseNo,
+  recordNo: (row) => row.docNo,
   isVoided: (row) => row.status === 'VOIDED',
-  recordId: (row) => row.id,
+  recordId: (row) => row.id ?? row.docNo,
 }
 
 const page = useEntryPage(adapter, ['category', 'accountId', 'amount', 'bizDate', 'counterparty', 'remark'])
@@ -76,6 +76,7 @@ const formFields = computed<FormFieldSchema[]>(() => [
     placeholder: '请选择资金账户',
     options: accountOptions(accounts.value),
   },
+  { key: 'content', label: '支出内容', type: 'text', required: true, placeholder: '如：11月工资/采购原材料' },
   { key: 'amount', label: '支出金额', type: 'amount', required: true },
   {
     key: 'bizDate',
@@ -90,10 +91,10 @@ const formFields = computed<FormFieldSchema[]>(() => [
 
 // 展示行：字典名称解析为数据装配（字典晚到时展示行重建 → data 身份变化 → 表格重建）
 const displayRows = computed<ExpenseDisplayRow[]>(() => {
-  const accountNames = new Map(accounts.value.map((account) => [account.id, account.accountName]))
+  const accountNames = new Map(accounts.value.map((account) => [account.id, account.name]))
   return page.list.rows.value.map((row) => ({
     ...row,
-    accountName: accountNames.get(row.accountId) ?? row.accountId,
+    accountName: accountNames.get(row.accountName) ?? row.accountName,
   }))
 })
 
@@ -200,7 +201,7 @@ function setStatusFilter(value: string): void {
     <ConfirmDialog
       v-model:open="page.voidDialogOpen.value"
       title="确认撤销支出单"
-      :description="`撤销将保留原单据并生成反向流水，且不可重复撤销。单据：${page.voidTarget.value?.expenseNo ?? ''}。`"
+      :description="`撤销将保留原单据并生成反向流水，且不可重复撤销。单据：${page.voidTarget.value?.docNo ?? ''}。`"
       confirm-text="确认撤销"
       danger
       @confirm="page.confirmVoid"

@@ -55,7 +55,8 @@ export async function login(page: Page): Promise<void> {
   await page.getByTestId('login-username').fill(E2E_USERNAME)
   await page.getByTestId('login-password').fill(E2E_PASSWORD)
   await page.getByTestId('login-submit').click()
-  await expect(page).toHaveURL(/\/(workbench|login)/)
+  // 等待成功跳转到工作台（而非停留在 /login——避免模式同时匹配起点）
+  await page.waitForURL(/\/workbench/, { timeout: 15_000 })
   // 登录失败时立即暴露（避免后续步骤静默错位）
   await expect(page.getByTestId('login-error')).toHaveCount(0)
 }

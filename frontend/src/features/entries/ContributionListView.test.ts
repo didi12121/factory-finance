@@ -9,24 +9,24 @@ import type { ContributionRecord, FundAccount, PageResult, Shareholder } from '@
 
 const contribution: ContributionRecord = {
   id: 'doc-1',
-  contributionNo: 'CZ-0001',
-  shareholderId: 's-1',
-  accountId: 'acct-1',
+  docNo: 'CZ-0001',
+  shareholderName: '王五',
+  accountName: '现金账户',
   amount: '50000.00',
-  bizDate: '2026-11-25',
+  contributionDate: '2026-11-25',
   remark: '出资款',
   status: 'CONFIRMED',
   createdAt: '2026-11-25T10:00:00',
-  voidedAt: null,
+  voidDate: null,
 }
 
 const account: FundAccount = {
   id: 'acct-1',
   accountNo: 'FA-0001',
-  accountName: '现金账户',
+  name: '现金账户',
   accountType: 'CASH',
   currency: 'CNY',
-  openingBalance: '0.00',
+  openingDate: '2026-11-27', openingBalance: '0.00',
   status: 'ENABLED',
   currentBalance: '50000.00',
   remark: null,
@@ -113,8 +113,8 @@ describe('股东出资页（真实 API）', () => {
     // 表单值装配（Select/AmountInput/DateInput 合法值）
     const dialog = wrapper.findComponent(FormDialog)
     dialog.vm.$emit('update:modelValue', {
-      shareholderId: 's-1',
-      accountId: 'acct-1',
+      shareholderName: '王五',
+      accountName: '现金账户',
       amount: '50,000.00',
       bizDate: '2026-11-27',
       remark: '出资款',
@@ -125,10 +125,10 @@ describe('股东出资页（真实 API）', () => {
 
     const post = mock.requests.find((request) => request.method === 'POST' && request.url === '/treasury/contributions')
     expect(post?.body).toEqual({
-      shareholderId: 's-1',
-      accountId: 'acct-1',
+      shareholderId: 1,
+      accountId: 2,
       amount: '50000.00',
-      bizDate: '2026-11-27',
+      contributionDate: '2026-11-27',
       remark: '出资款',
     })
     wrapper.unmount()
@@ -149,8 +149,8 @@ describe('股东出资页（真实 API）', () => {
 
     const dialog = wrapper.findComponent(FormDialog)
     dialog.vm.$emit('update:modelValue', {
-      shareholderId: 's-1',
-      accountId: 'acct-1',
+      shareholderId: '1',
+      accountId: '2',
       amount: '0',
       bizDate: '2026-11-27',
       remark: '',
@@ -167,7 +167,7 @@ describe('股东出资页（真实 API）', () => {
     const mock = install((url, method) => {
       if (url === '/treasury/contributions' && method === 'GET') return ok(pageOf([contribution]))
       if (url === '/treasury/contributions/doc-1/void') {
-        return ok({ ...contribution, status: 'VOIDED', voidedAt: '2026-11-27T08:00:00' })
+        return ok({ ...contribution, status: 'VOIDED', voidDate: '2026-11-27T08:00:00' })
       }
       if (url === '/treasury/accounts') return ok(pageOf([account]))
       if (url === '/masterdata/shareholders') return ok(pageOf([shareholder]))

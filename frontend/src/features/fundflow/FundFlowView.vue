@@ -27,6 +27,7 @@ import { DateRangeInput } from '@/components/ui/date'
 import Select from '@/components/ui/select/Select.vue'
 import { useToast } from '@/components/ui/toast/useToast'
 import { usePagedList } from '@/composables/usePagedList'
+import { todayLocalDate } from '@/utils/localDate'
 import {
   apiErrorMessage,
   masterdataApi,
@@ -86,7 +87,7 @@ async function loadAccounts(): Promise<void> {
 onMounted(loadAccounts)
 
 function accountName(accountId: string): string {
-  return accounts.value.find((account) => account.id === accountId)?.accountName ?? accountId
+  return accounts.value.find((account) => account.id === accountId)?.name ?? accountId
 }
 
 /* -------------------------------- 筛选条件 -------------------------------- */
@@ -94,7 +95,7 @@ function accountName(accountId: string): string {
 const accountOptions = computed(() => [
   { label: '全部资金账户', value: ALL },
   ...accounts.value.map((account) => ({
-    label: account.status === 'ENABLED' ? account.accountName : `${account.accountName}（已停用）`,
+    label: account.status === 'ENABLED' ? account.name : `${account.name}（已停用）`,
     value: account.id,
   })),
 ])
@@ -137,7 +138,7 @@ function clearFilters(): void {
 
 // 展示行：账户名称解析为数据装配（字典晚到时展示行重建 → data 身份变化 → 表格重建）
 const displayRows = computed<FundflowDisplayRow[]>(() => {
-  const accountNames = new Map(accounts.value.map((account) => [account.id, account.accountName]))
+  const accountNames = new Map(accounts.value.map((account) => [account.id, account.name]))
   return list.rows.value.map((row) => ({
     ...row,
     accountName: accountNames.get(row.accountId) ?? row.accountId,
@@ -190,11 +191,11 @@ async function confirmVoidSource(): Promise<void> {
   voidSubmitting.value = true
   try {
     if (target.sourceDocType === 'CONTRIBUTION') {
-      await treasuryApi.voidContribution(target.sourceDocId)
+      await treasuryApi.voidContribution(target.sourceDocId, todayLocalDate())
     } else if (target.sourceDocType === 'EXPENSE') {
-      await treasuryApi.voidExpense(target.sourceDocId)
+      await treasuryApi.voidExpense(target.sourceDocId, todayLocalDate())
     } else {
-      await treasuryApi.voidTransfer(target.sourceDocId)
+      await treasuryApi.voidTransfer(target.sourceDocId, todayLocalDate())
     }
     toast.success('撤销成功', `${target.label}已撤销，已生成反向流水。`)
     sheetOpen.value = false

@@ -54,14 +54,15 @@ describe('经营概览统计期间派生（真实今天，可注入）', () => {
 
 function buildSummary(): DashboardSummary {
   return {
-    asOf: TODAY,
-    period: { from: '2026-11-01', to: '2026-11-30' },
-    totalFundBalance: '123456.78',
-    periodContribution: '50000.00',
-    periodInflow: '80000.50',
-    periodActualExpenses: '23456.78',
+    from: '2026-11-01', to: TODAY,
+    currentBalance: '123456.78',
+    periodContributionTotal: '50000.00',
+    periodExternalInflow: '80000.50',
+    periodExpenseTotal: '23456.78',
+    periodExternalOutflow: '23456.78',
+    calibers: {},
     expenseBreakdown: [{ category: 'SALARY', amount: '20000.00' }],
-    cashFlowTrend: [{ date: '2026-11-01', inflow: '100.00', outflow: '50.00' }],
+    trend: [{ date: '2026-11-01', inflow: '100.00', outflow: '50.00', correctionIn: '0', correctionOut: '0' }],
     recentTransactions: [],
   }
 }

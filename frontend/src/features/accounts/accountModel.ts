@@ -4,19 +4,21 @@
  */
 
 import type { FundAccount, FundAccountInput, FundAccountType } from '@/services/api'
+import { todayLocalDate } from '@/utils/localDate'
 import { isValidAmount, normalizeAmount } from '@/utils/money'
 
 /** 账户表单值（schema 字段键 → 文本值） */
 export type AccountFormValues = Record<string, string>
 
 /** 账户表单字段键 */
-export const ACCOUNT_FORM_KEYS = ['accountName', 'accountType', 'openingBalance', 'remark', 'status'] as const
+export const ACCOUNT_FORM_KEYS = ['accountName', 'accountType', 'openingBalance', 'openingDate', 'remark', 'status'] as const
 
 export function emptyAccountForm(): AccountFormValues {
   return {
     accountName: '',
     accountType: 'CASH',
     openingBalance: '',
+    openingDate: todayLocalDate(),
     remark: '',
     status: 'ENABLED',
   }
@@ -25,9 +27,10 @@ export function emptyAccountForm(): AccountFormValues {
 /** 由行数据装配编辑表单 */
 export function accountFormFromRow(row: FundAccount): AccountFormValues {
   return {
-    accountName: row.accountName,
+    accountName: row.name,
     accountType: row.accountType,
     openingBalance: row.openingBalance,
+    openingDate: row.openingDate,
     remark: row.remark ?? '',
     status: row.status,
   }
@@ -59,12 +62,13 @@ export function validateAccountForm(values: AccountFormValues): Record<string, s
   return errors
 }
 
-/** 表单 → 账户载荷（编号后端生成） */
+/** 表单 → 账户载荷（编号后端生成；字段名对齐 CreateAccountRequest） */
 export function toAccountInput(values: AccountFormValues): FundAccountInput {
   return {
-    accountName: (values.accountName ?? '').trim(),
+    name: (values.accountName ?? '').trim(),
     accountType: values.accountType as FundAccountType,
     openingBalance: normalizeAmount(values.openingBalance ?? '') ?? '0',
+    openingDate: (values.openingDate ?? '').trim(),
     remark: (values.remark ?? '').trim() === '' ? null : (values.remark ?? '').trim(),
     status: values.status === 'DISABLED' ? 'DISABLED' : 'ENABLED',
   }

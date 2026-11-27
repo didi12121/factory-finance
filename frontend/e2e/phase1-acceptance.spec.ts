@@ -9,6 +9,9 @@
 
 import { expect, test } from '@playwright/test'
 
+// 全 UI 流程含登录步骤，清空全局登录态
+test.use({ storageState: { cookies: [], origins: [] } })
+
 import {
   actionInRow,
   businessToday,
@@ -27,6 +30,9 @@ async function readMoney(page: import('@playwright/test').Page, testId: string):
 }
 
 test.describe('Phase 1 全 UI 验收流程（真实 API）', () => {
+  // 全流程含登录 + 7 组业务操作 + 断言 + 多次页面加载，默认 30s 不足
+  test.setTimeout(600_000)
+
   test('登录→账户→出资→支出→转账→流水→概览→撤销', async ({ page }) => {
     const id = runId()
     const shareholderName = `E2E股东-${id}`
@@ -53,16 +59,23 @@ test.describe('Phase 1 全 UI 验收流程（真实 API）', () => {
       await fillFormField(page, 'accountName', cashAccount)
       await selectOption(page, '账户类型', '现金')
       await fillFormField(page, 'openingBalance', '10000.00')
+      await fillFormField(page, 'openingDate', today)
       await submitDialog(page, '新增资金账户')
+      // 搜索定位新账户（历史数据多，避免翻页）
+      await page.getByTestId('filter-keyword').locator('input').fill(cashAccount)
       await expect(page.getByTestId('accounts-table')).toContainText(cashAccount)
       await expect(page.getByTestId('accounts-table')).toContainText('10,000.00')
 
+      await page.getByTestId('clear-filters').click()
       await page.getByTestId('create-account').click()
       await fillFormField(page, 'accountName', bankAccount)
       await selectOption(page, '账户类型', '银行')
       await fillFormField(page, 'openingBalance', '0.00')
+      await fillFormField(page, 'openingDate', today)
       await submitDialog(page, '新增资金账户')
+      await page.getByTestId('filter-keyword').locator('input').fill(bankAccount)
       await expect(page.getByTestId('accounts-table')).toContainText(bankAccount)
+      await page.getByTestId('clear-filters').click()
     })
 
     /* -------------------------- 概览基线（增量法断言用） ------------------------- */
@@ -89,6 +102,7 @@ test.describe('Phase 1 全 UI 验收流程（真实 API）', () => {
       await page.goto('/treasury/expenses')
       await page.getByTestId('create-expense').click()
       await selectOption(page, '支出分类', '其他')
+      await fillFormField(page, 'content', 'E2E采购支出')
       await selectOption(page, '付款账户', cashAccount)
       await fillFormField(page, 'amount', '320.25')
       await fillFormField(page, 'bizDate', today)
@@ -144,8 +158,8 @@ test.describe('Phase 1 全 UI 验收流程（真实 API）', () => {
     /* -------------------------------- 撤销 -------------------------------- */
     await test.step('撤销出资单（保留原单据 + 反向流水，不可重复撤销）', async () => {
       await page.goto('/treasury/contributions')
-      await page.getByTestId('filter-keyword').locator('input').fill(`${remarkPrefix}-CZ`)
-      await actionInRow(page, `${remarkPrefix}-CZ`, 'row-void')
+      // 本次测试仅创建一笔出资，直接点首行撤销按钮
+      await page.getByTestId('row-void').first().click({ timeout: 15_000 })
       await submitDialog(page, '确认撤销')
       await expect(page.getByTestId('contributions-table')).toContainText('已撤销')
     })

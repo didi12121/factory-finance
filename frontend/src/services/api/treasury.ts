@@ -77,8 +77,8 @@ export function createContribution(input: ContributionInput): Promise<Contributi
   return post<ContributionRecord>('/treasury/contributions', input)
 }
 
-export function voidContribution(id: string): Promise<ContributionRecord> {
-  return post<ContributionRecord>(`/treasury/contributions/${id}/void`)
+export function voidContribution(id: string, voidDate: string, reason?: string): Promise<ContributionRecord> {
+  return post<ContributionRecord>(`/treasury/contributions/${id}/void`, { voidDate, reason })
 }
 
 /* -------------------------------- 支出 -------------------------------- */
@@ -91,8 +91,8 @@ export function createExpense(input: ExpenseInput): Promise<ExpenseRecord> {
   return post<ExpenseRecord>('/treasury/expenses', input)
 }
 
-export function voidExpense(id: string): Promise<ExpenseRecord> {
-  return post<ExpenseRecord>(`/treasury/expenses/${id}/void`)
+export function voidExpense(id: string, voidDate: string, reason?: string): Promise<ExpenseRecord> {
+  return post<ExpenseRecord>(`/treasury/expenses/${id}/void`, { voidDate, reason })
 }
 
 /* -------------------------------- 转账 -------------------------------- */
@@ -105,8 +105,8 @@ export function createTransfer(input: TransferInput): Promise<TransferRecord> {
   return post<TransferRecord>('/treasury/transfers', input)
 }
 
-export function voidTransfer(id: string): Promise<TransferRecord> {
-  return post<TransferRecord>(`/treasury/transfers/${id}/void`)
+export function voidTransfer(id: string, voidDate: string, reason?: string): Promise<TransferRecord> {
+  return post<TransferRecord>(`/treasury/transfers/${id}/void`, { voidDate, reason })
 }
 
 /* ------------------------------- 资金流水 ------------------------------ */

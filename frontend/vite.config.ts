@@ -22,5 +22,12 @@ export default defineConfig({
   },
   preview: {
     port: 4173,
+    // E2E/预览环境 /api 代理到本地后端（生产由 Nginx 承担）
+    proxy: {
+      '/api': {
+        target: process.env.VITE_API_PROXY_TARGET || 'http://localhost:8080',
+        changeOrigin: true,
+      },
+    },
   },
 })

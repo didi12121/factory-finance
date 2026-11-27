@@ -31,12 +31,12 @@ const adapter: EntryPageAdapter<ContributionRecord> = {
   entityLabel: '股东出资',
   list: (query) => treasuryApi.listContributions(query),
   create: (values) => treasuryApi.createContribution(toContributionInput(values)),
-  voidRecord: (id) => treasuryApi.voidContribution(id),
+  voidRecord: (id, voidDate, reason) => treasuryApi.voidContribution(id, voidDate, reason),
   validate: validateContributionForm,
   emptyForm: () => ({ shareholderId: '', accountId: '', amount: '', bizDate: '', remark: '' }),
-  recordNo: (row) => row.contributionNo,
+  recordNo: (row) => row.docNo,
   isVoided: (row) => row.status === 'VOIDED',
-  recordId: (row) => row.id,
+  recordId: (row) => row.id ?? row.docNo,
 }
 
 const page = useEntryPage(adapter, ['shareholderId', 'accountId', 'amount', 'bizDate', 'remark'])
@@ -94,12 +94,12 @@ const formFields = computed<FormFieldSchema[]>(() => [
 
 // 展示行：字典名称解析为数据装配（字典晚到时展示行重建 → data 身份变化 → 表格重建）
 const displayRows = computed<ContributionDisplayRow[]>(() => {
-  const accountNames = new Map(accounts.value.map((account) => [account.id, account.accountName]))
+  const accountNames = new Map(accounts.value.map((account) => [account.id, account.name]))
   const shareholderNames = new Map(shareholders.value.map((item) => [item.id, item.name]))
   return page.list.rows.value.map((row) => ({
     ...row,
-    shareholderName: shareholderNames.get(row.shareholderId) ?? row.shareholderId,
-    accountName: accountNames.get(row.accountId) ?? row.accountId,
+    shareholderName: shareholderNames.get(row.shareholderName) ?? row.shareholderName,
+    accountName: accountNames.get(row.accountName) ?? row.accountName,
   }))
 })
 
@@ -206,7 +206,7 @@ function setStatusFilter(value: string): void {
     <ConfirmDialog
       v-model:open="page.voidDialogOpen.value"
       title="确认撤销出资单"
-      :description="`撤销将保留原单据并生成反向流水，且不可重复撤销。单据：${page.voidTarget.value?.contributionNo ?? ''}。`"
+      :description="`撤销将保留原单据并生成反向流水，且不可重复撤销。单据：${page.voidTarget.value?.docNo ?? ''}。`"
       confirm-text="确认撤销"
       danger
       @confirm="page.confirmVoid"

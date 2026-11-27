@@ -172,10 +172,10 @@ function updateCustom(field: 'customFrom' | 'customTo', value: string): void {
       <!-- 图表：资金收付趋势 + 支出分类 -->
       <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <SectionPanel title="资金收付趋势" description="按日聚合的实际资金收付（流入/流出）。">
-          <CashFlowTrendChart :trend="summary.cashFlowTrend" />
+          <CashFlowTrendChart :trend="summary.trend" />
         </SectionPanel>
         <SectionPanel title="支出分类" description="期间实际支出按分类聚合（资金事实）。">
-          <ExpenseBreakdownChart :breakdown="summary.expenseBreakdown" />
+          <ExpenseBreakdownChart :breakdown="summary.expenseBreakdown ?? []" />
         </SectionPanel>
       </div>
 

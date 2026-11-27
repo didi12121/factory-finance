@@ -39,13 +39,14 @@ public class ContributionsController {
     public ApiResponse<PageResult<ContributionView>> list(
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String dateFrom,
             @RequestParam(required = false) String dateTo,
             @RequestParam(required = false) Long shareholderId,
             @RequestParam(required = false) Long accountId,
             @RequestParam(required = false) String status) {
         return ApiResponse.success(
-                contributionService.list(page, size, dateFrom, dateTo, shareholderId, accountId, status));
+                contributionService.list(page, size, keyword, dateFrom, dateTo, shareholderId, accountId, status));
     }
 
     @PostMapping

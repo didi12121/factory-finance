@@ -8,6 +8,7 @@ import { computed, ref, type Ref } from 'vue'
 
 import { useToast } from '@/components/ui/toast/useToast'
 import { usePagedList, type PagedListState } from '@/composables/usePagedList'
+import { todayLocalDate } from '@/utils/localDate'
 import {
   apiErrorMessage,
   fieldErrorOf,
@@ -25,7 +26,7 @@ export interface EntryPageAdapter<TRow> {
   entityLabel: string
   list: (query: RecordListQuery) => Promise<PageResult<TRow>>
   create: (values: EntryFormValues) => Promise<TRow>
-  voidRecord: (id: string) => Promise<TRow>
+  voidRecord: (id: string, voidDate: string, reason?: string) => Promise<TRow>
   validate: (values: EntryFormValues) => Record<string, string>
   emptyForm: () => EntryFormValues
   /** 行数据读取：单据编号（确认文案） */
@@ -152,7 +153,7 @@ export function useEntryPage<TRow>(adapter: EntryPageAdapter<TRow>, formFieldKey
       return
     }
     try {
-      await adapter.voidRecord(adapter.recordId(row))
+      await adapter.voidRecord(adapter.recordId(row), todayLocalDate())
       toast.success('撤销成功', '原单据已保留，已生成反向流水。')
       await list.load()
     } catch (error) {
