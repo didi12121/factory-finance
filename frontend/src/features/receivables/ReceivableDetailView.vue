@@ -210,14 +210,24 @@ function goRegisterPayment(): void {
             </TableHeader>
             <TableBody>
               <TableRow v-for="row in receiptRows" :key="row.receiptId">
-                <TableCell><DocumentNumber :value="row.receiptNo" /></TableCell>
-                <TableCell class="tabular">{{ row.receiptDate }}</TableCell>
-                <TableCell>{{ accountNameOf(row.accountId) }}</TableCell>
-                <TableCell align="right">
-                  <MoneyText :value="row.receiptActualAmount" size="table" />
+                <TableCell>
+                  <span class="inline-block min-w-24 whitespace-nowrap"><DocumentNumber :value="row.receiptNo" /></span>
+                </TableCell>
+                <TableCell>
+                  <span class="tabular inline-block min-w-24 whitespace-nowrap">{{ row.receiptDate }}</span>
+                </TableCell>
+                <TableCell>
+                  <span class="inline-block min-w-24 whitespace-nowrap">{{ accountNameOf(row.accountId) }}</span>
                 </TableCell>
                 <TableCell align="right">
-                  <MoneyText :value="row.allocatedToThisReceivable" size="table" />
+                  <span class="inline-block min-w-24 whitespace-nowrap">
+                    <MoneyText :value="row.receiptActualAmount" size="table" />
+                  </span>
+                </TableCell>
+                <TableCell align="right">
+                  <span class="inline-block min-w-24 whitespace-nowrap">
+                    <MoneyText :value="row.allocatedToThisReceivable" size="table" />
+                  </span>
                 </TableCell>
               </TableRow>
             </TableBody>
@@ -243,12 +253,20 @@ function goRegisterPayment(): void {
             </TableHeader>
             <TableBody>
               <TableRow v-for="row in allocationRows" :key="row.allocationId">
-                <TableCell><DocumentNumber :value="row.allocationId" /></TableCell>
-                <TableCell><DocumentNumber :value="row.receiptNo" /></TableCell>
-                <TableCell align="right">
-                  <MoneyText :value="row.allocationAmount" size="table" />
+                <TableCell>
+                  <span class="inline-block min-w-24 whitespace-nowrap"><DocumentNumber :value="row.allocationId" /></span>
                 </TableCell>
-                <TableCell class="tabular">{{ row.allocatedAt }}</TableCell>
+                <TableCell>
+                  <span class="inline-block min-w-24 whitespace-nowrap"><DocumentNumber :value="row.receiptNo" /></span>
+                </TableCell>
+                <TableCell align="right">
+                  <span class="inline-block min-w-24 whitespace-nowrap">
+                    <MoneyText :value="row.allocationAmount" size="table" />
+                  </span>
+                </TableCell>
+                <TableCell>
+                  <span class="tabular inline-block min-w-24 whitespace-nowrap">{{ row.allocatedAt }}</span>
+                </TableCell>
               </TableRow>
             </TableBody>
           </Table>
