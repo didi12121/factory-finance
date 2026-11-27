@@ -83,8 +83,9 @@ public class JwtService {
     /**
      * 解析并验证令牌。
      *
-     * <p>算法约束：使用 JJWT 官方算法白名单机制（{@code sig()}）仅允许 HS256，
-     * 其他签名算法（如 HS512/RS256/none）在已验证的解析流程中直接拒绝；
+     * <p>算法约束：使用 JJWT 官方算法白名单机制（{@code sig()}），先 {@code clear()}
+     * 清空默认注册的全部签名算法，再仅注册 HS256；其他签名算法（如 HS384/HS512/RS256/none）
+     * 在已验证的解析流程中直接拒绝（{@code add()} 不会移除默认算法，必须先清空）；
      * 不依赖未验证的 JWT Header 判断合法性（签名校验必须先行通过）。</p>
      *
      * <p>必要声明校验：{@code sub}、{@code iss}、{@code iat}、{@code exp} 必须存在，
@@ -94,8 +95,8 @@ public class JwtService {
      */
     public Claims parseToken(String token) {
         Jws<Claims> jws = Jwts.parser()
-                // 官方算法白名单：仅接受 HS256
-                .sig().add(Jwts.SIG.HS256).and()
+                // 官方算法白名单：clear() 清空默认注册算法，仅注册 HS256
+                .sig().clear().add(Jwts.SIG.HS256).and()
                 .verifyWith(key)
                 .requireIssuer(properties.getIssuer())
                 .clockSkewSeconds(30)
