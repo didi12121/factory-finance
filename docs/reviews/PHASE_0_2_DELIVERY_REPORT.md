@@ -130,6 +130,7 @@
 | P3 | F-004/F-005 图表图例与窄视口刻度 | **已修复**（D） |
 | P3 | F-006/F-007/F-008 收款/应收表格与日期格式 | **已修复**（G/F；日期控件原生 locale 显示残留 mm/dd/yyyy，已加「格式 YYYY-MM-DD」提示与回显，彻底自定义控件建议 Phase 0.3） |
 | 环境 | Node 24.14.0 < engines 声明（EBADENGINE 警告） | 测试全绿；CI 用 Node 24（≥24.15）无警告 |
+| 环境 | Linux CI 字体度量差异致 390px 页面 1px 横向溢出（Run #5） | **已修复**：共享布局 `overflow-x-clip` 兜底（不创建滚动容器、不影响内部滚动/sticky），E2E 断言保持 ≤0，Run #6 全绿 |
 | 环境 | Flyway 11.7.2 对 MySQL 8.4「支持未测试」警告 | 迁移/校验实测通过（Testcontainers + Compose） |
 | 待确认 | 预收款/未分配收款规则、正式会计科目/凭证规则 | 按 ACCOUNTING_RULES 标注待架构师确认，未擅自实现 |
 
@@ -152,10 +153,13 @@ Copy-Item .env.example .env; docker compose up -d --build           # http://loc
 
 ## 12. Git Status
 
-- 集成分支：`phase-0.2/integration`（合并留痕：Gate1/2、Wave3 ×4、修复轮 ×3、QA ×2）
-- 工作区状态：clean（提交前核验）；无真实密码/Secret；.env 未提交
-- 各 Agent 提交见第 4 节表格；最终交付提交与 CI 状态以推送后 Git/GitHub 输出为准（见交付消息）
-- 远程：main 快进推送（无 force、无历史改写）
+- 集成分支：`phase-0.2/integration`（合并留痕：Gate1/2、Wave3 ×4、修复轮 ×3、QA ×2、CI 修复 ×1）
+- **最终验证代码提交**：`bd07e365cb2dedd39774a089ce5cf556ba267326`（main）
+- **CI 状态**：**PASS** — Run #6（head `bd07e36`）4/4 Job 全绿：https://github.com/didi12121/factory-finance/actions/runs/45948450441
+  （Run #5 曾 93/94：Linux CI 字体度量差异导致 390px 1px 横向溢出，经共享布局 `overflow-x-clip` 兜底修复并复验）
+- 工作区状态：clean；无真实密码/Secret；.env 未提交
+- 各 Agent 提交见第 4 节表格；远程 main 快进推送（无 force、无历史改写）
+- 本报告随附提交仅记录上述已验证代码的 Hash 与 CI 结果
 
 ## 13. Scope Verification
 
