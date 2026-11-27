@@ -101,16 +101,21 @@ export function buildTrendOption(data: TrendChartData, palette: ChartPalette): E
     },
     legend: {
       data: ['流入', '流出'],
+      // F-004：图例显式置顶，避免与 X 轴标签/绘图区重叠
+      top: 'top',
+      left: 0,
+      itemWidth: 12,
+      itemHeight: 12,
       textStyle: { color: palette.axisText },
-      itemWidth: 10,
-      itemHeight: 10,
     },
-    grid: { left: 8, right: 12, top: 36, bottom: 8, containLabel: true },
+    // F-004：grid 顶部预留图例高度、底部预留 X 轴标签，绘图区互不遮挡（1920/390 均不重叠）
+    grid: { left: 8, right: 12, top: 44, bottom: 24, containLabel: true },
     xAxis: {
       type: 'category',
       data: data.labels,
       axisLine: { lineStyle: { color: palette.axisLine } },
-      axisLabel: { color: palette.axisText },
+      // F-004/窄视口：X 轴时间刻度标签互不重叠（重叠项自动隐藏）
+      axisLabel: { color: palette.axisText, hideOverlap: true },
       axisTick: { show: false },
     },
     yAxis: {
@@ -183,9 +188,13 @@ export function buildExpenseOption(data: ExpenseChartData, palette: ChartPalette
     grid: { left: 8, right: 24, top: 8, bottom: 8, containLabel: true },
     xAxis: {
       type: 'value',
+      // F-005：窄视口刻度精简，避免金额刻度互相重叠
+      splitNumber: 3,
       splitLine: { lineStyle: { color: palette.axisLine, type: 'dashed' } },
       axisLabel: {
         color: palette.axisText,
+        // F-005：窄视口 X 轴金额刻度不重叠（重叠项自动隐藏）
+        hideOverlap: true,
         formatter: (value: number) => value.toLocaleString('zh-CN'),
       },
     },

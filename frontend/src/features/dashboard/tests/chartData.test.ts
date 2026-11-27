@@ -83,7 +83,7 @@ describe('buildExpenseData — 支出分类', () => {
   it('分类中文 + 几何值 Number + 格式化金额', () => {
     const data = buildExpenseData(breakdown)
     expect(data.hasData).toBe(true)
-    expect(data.categories).toEqual(['工资', '水电费'])
+    expect(data.categories).toEqual(['工资', '水电'])
     expect(data.values).toEqual([29500, 1350])
     expect(data.formatted).toEqual(['29,500.00', '1,350.00'])
     expect(formatExpenseTooltip(data, 0)).toBe('工资 29,500.00')
@@ -96,7 +96,7 @@ describe('buildExpenseData — 支出分类', () => {
     expect(series[0].type).toBe('bar')
     expect(series[0].data).toEqual([29500, 1350])
     const tooltip = option.tooltip as { formatter: (params: unknown) => string }
-    expect(tooltip.formatter({ dataIndex: 1 })).toBe('水电费 1,350.00')
+    expect(tooltip.formatter({ dataIndex: 1 })).toBe('水电 1,350.00')
   })
 
   it('空支出 hasData=false', () => {
@@ -104,7 +104,7 @@ describe('buildExpenseData — 支出分类', () => {
   })
 
   it('交易类型中文标签覆盖全部类型', () => {
-    expect(TRANSACTION_TYPE_LABELS.PROCESSING_FEE_RECEIPT).toBe('加工费收款')
+    expect(TRANSACTION_TYPE_LABELS.PROCESSING_FEE_RECEIPT).toBe('加工费回款')
     expect(TRANSACTION_TYPE_LABELS.SHAREHOLDER_CONTRIBUTION).toBe('股东出资')
     expect(TRANSACTION_TYPE_LABELS.INTERNAL_TRANSFER).toBe('内部转账')
   })
