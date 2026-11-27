@@ -56,8 +56,8 @@ const EXPENSE_CATEGORIES: TransactionType[] = ['SALARY', 'UTILITIES', 'PURCHASE'
  * 收入确认口径（报告层防御性过滤，A3）：
  * 当前原型**不支持未来收入确认**——会计月份晚于 DEMO_TODAY 所属月、或对账日期
  * （收入确认日期）晚于 DEMO_TODAY 的应收单，不得进入截至当前业务日期的已确认收入。
- * 写时校验（createReceivable 拒绝未来月份/未来对账日期）是第一道防线，
- * 本过滤为报告层防御（覆盖直接注入状态/迁移数据等旁路场景）；
+ * 未来月/未来日期单据**允许创建**（createReceivable 不拒绝，视为未确认/未来期间单据），
+ * 仅在收入确认口径上被本过滤排除（覆盖新建单据、直接注入状态/迁移数据等场景）；
  * 禁止据此引入预计收入/预计回款等未确认会计规则。
  */
 function isRecognizedRevenue(receivable: Receivable): boolean {
