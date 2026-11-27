@@ -11,7 +11,9 @@ const appStore = useAppStore()
 </script>
 
 <template>
-  <div class="flex min-h-screen bg-background">
+  <!-- overflow-x-clip：禁止页面级横向滚动（表格等宽内容在自身容器内滚动）；
+       clip 不创建滚动容器，不影响 sticky 头部与内部 overflow-x-auto -->
+  <div class="flex min-h-screen overflow-x-clip bg-background">
     <AppSidebar />
 
     <!-- 移动端抽屉导航 -->
