@@ -464,6 +464,52 @@ test.describe('S6 内部转账', () => {
   })
 })
 
+/* ============ F-004~F-008 视觉修复回归（computed style 断言，复验轮追加） ============ */
+
+test.describe('复验轮：视觉修复回归（QA F-004~F-008）', () => {
+  test('F-006 标签不竖排 / F-007 关键列 min-width 96px / F-008 日期格式提示', async ({ page }) => {
+    await page.goto(RECEIPTS_URL)
+    await markSession(page)
+
+    // F-006：收款单筛选「收款日期」标签 whitespace-nowrap（不再逐字竖排）
+    const dateLabel = page.getByText('收款日期', { exact: true }).first()
+    await expect(dateLabel).toBeVisible()
+    expect(await dateLabel.evaluate((el) => getComputedStyle(el).whiteSpace)).toBe('nowrap')
+    const labelBox = await dateLabel.boundingBox()
+    expect(labelBox).not.toBeNull()
+    expect(labelBox!.width).toBeGreaterThan(labelBox!.height)
+
+    // F-008：日期控件可见格式提示（YYYY-MM-DD），并随输入回显业务日期
+    await openRegistration(page)
+    const hint = page.locator('#receipt-date-format-hint')
+    await expect(hint).toContainText('格式 YYYY-MM-DD')
+    await expect(hint).toContainText('2026-11-30') // 默认值 DEMO_TODAY 回显
+
+    // F-007（收款侧）：收款单编号列内容容器 min-width 96px + 不换行
+    await chooseCustomer(page, '示例客户 A')
+    const receiptKeyCell = page
+      .getByTestId('receipt-list-table')
+      .locator('tbody tr')
+      .first()
+      .locator('td')
+      .first()
+      .locator('div')
+      .first()
+    expect(await receiptKeyCell.evaluate((el) => getComputedStyle(el).minWidth)).toBe('96px')
+    expect(await receiptKeyCell.evaluate((el) => getComputedStyle(el).whiteSpace)).toBe('nowrap')
+
+    // F-007（应收侧）：对账单编号列内容容器 min-w-24（96px）+ 不换行
+    await navTo(page, '应收账款')
+    const receivableKeyCell = page
+      .getByTestId('receivables-table')
+      .locator('tbody tr td:first-child > span')
+      .first()
+    expect(await receivableKeyCell.evaluate((el) => getComputedStyle(el).minWidth)).toBe('96px')
+    expect(await receivableKeyCell.evaluate((el) => getComputedStyle(el).whiteSpace)).toBe('nowrap')
+    await expectSameSession(page)
+  })
+})
+
 /* ==================== UI 证据截图（审核证据，非最终交付截图） ==================== */
 
 test.describe('QA UI 证据截图（1920×1080 / 390×844）', () => {

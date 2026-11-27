@@ -111,7 +111,7 @@ production_isolation:
     fixtures_eliminated: >-
       prototype fixtures/Mock Store/四个演示业务页 chunk 全部被 Rollup 消除：
       'DEMO_TODAY'、'2026-11-30'、'AR-2026-0024'、'SK-2026-0008'、'FT-2026-0022'、'demo-rc-001'、
-      '示例供应商甲'、'示例股东甲'、'虚构演示数据'、'跨模块演示场景' 在 dist 0 命中（node 扫描 4 文件/748,093 字节）。
+      '示例供应商甲'、'示例股东甲'、'虚构演示数据'、'跨模块演示场景' 在 dist 0 命中（上轮扫描口径澄清：dist 全部 599 个文件 = 4 个文本文件做内容扫描 748,093 字节 + 595 个字体二进制（不含文本特征，不做内容匹配）；复验轮以完整递归 + 字面/\uXXXX 转义双形态增强扫描器重核并复现，见「复验记录」）。
     leak: >-
       1 处命中：'示例客户 A' @ dist/assets/DesignSystemView-CeOeVTkr.js（150.86 kB / gzip 43.48 kB）——
       /dev/design-system 展示页模块（含动态生成的'示例客户 B–H'、'虚构测试数据'标记、'XS-2026-0001 · 示例客户 A · 2026-11-02'）
@@ -148,7 +148,7 @@ tests_executed:
     detail: "1/1 通过（16.2s）：/dev/design-system 生产构建下守卫重定向"
   - cmd: npm run build
     result: PASS
-    detail: "exit 0；产物 4 个文本文件/748,093 字节；扫描见 production_isolation"
+    detail: "exit 0；产物 599 个文件（4 文本文件/748,093 字节 + 595 字体二进制）；扫描见 production_isolation"
 
 test_results:
   cross_page_mandatory_S1: PASS
@@ -308,4 +308,111 @@ overall_status:
     F-002 分配至 D/E 任一展示常量归属方，F-003～F-008 酌情排期；
     修复后由 Agent H 复验（重跑 npm run build + 产物扫描 + test:e2e:prod + qa-cross-page.spec.ts），
     复验通过且 OPEN_P1=0 后 P02_H = VERIFIED、INDEPENDENT_QA = PASS。
+```
+
+---
+
+# 复验记录（第二轮 · 修复整改验证，2026-11-27）
+
+> 复验原则：不采信修复声明，全部结论来自重新真实执行（含基线重建实证）。
+> 复验分支：phase-0.2/agent-h-review（经授权 `git merge phase-0.2/integration`，fast-forward 至集成 HEAD）。
+
+```yaml
+reviewed_commit:
+  branch: phase-0.2/agent-h-review
+  head: 2909b86（= phase-0.2/integration HEAD，fast-forward 合并）
+  merge_note: "授权合并集成分支；生产代码仍只读（工作树仅 QA 报告与 qa spec 变更）"
+  fixes_under_review:
+    - d41eb2b "fix(integration): MODE-based build-time prototype isolation (QA F-001 P1), contract labels single source V1.1 (F-002), metric alignment docs (F-003)"
+    - 51b35cb "fix(receivables): mobile table column min-width (QA F-007)"
+    - 88ea716 "fix(receipts): filter label wrap, column min-width, date format hint (QA F-006/F-007/F-008)"
+    - ea43c70 "fix(dashboard): chart legend & narrow-viewport axis ticks (QA F-004/F-005)"
+
+re_verification:
+  item_1_typecheck_and_unit:
+    result: PASS
+    detail: "npm run type-check exit 0（vue-tsc ×2）；npm test：28 files / 300 tests 全部通过（与预期 300/300 一致；新增 ReceivablesView/ReceivableDetailView 修复回归用例）"
+  item_2_build_and_full_scan:
+    result: PASS
+    detail: >-
+      npm run build exit 0（5.91s）；产物 598 个文件 = 3 个文本文件（index.html + index-DThbFXlH.css 383.37 kB +
+      index-Btyd61sm.js 208.59 kB）+ 595 个字体二进制，合计 17,349,872 字节；
+      增强扫描器（完整递归不限扩展名；14 个特征字符串 × 字面 UTF-8 + \uXXXX 转义（大小写十六进制）双形态）
+      **0 命中**；'DESIGN SYSTEM' 展示页 chunk 已从产物消失（上轮的 DesignSystemView-CeOeVTkr.js 不复存在）；
+      常规骨架对照（经营概览/应收账款/该功能尚未实现）齐全，扫描非空洞。
+  item_3_prod_guard_and_routes:
+    result: PASS
+    detail: >-
+      npm run test:e2e:prod 1/1 通过（/dev/design-system 守卫重定向）；
+      独立行为验证（临时脚本 prod-route-check.mjs，真实浏览器逐路由）：/dev/design-system、/treasury/transactions、
+      /business/receivables、/business/receivables/ar-001、/business/processing-fee 5/5 重定向 /workbench，
+      页面内容泄漏 0（Color Tokens/登记回款/示例客户 A/DEMO_TODAY 均无），模拟操作入口全部不可达。
+  item_4_qa_cross_page:
+    result: PASS
+    detail: "$env:E2E_PORT='4191' qa-cross-page.spec.ts 10/10（S1 强制跨页面场景同一会话全绿 + S2–S6 + 新增修复回归断言）"
+  item_5_full_e2e:
+    result: PASS
+    detail: "$env:E2E_PORT='4192' npx playwright test 96/96（1.4m；预期 95 + 复验轮新增修复回归 1 个）；四页面 spec 与共享 spec 全部通过，无既有共享 spec 问题"
+  item_6_visual_fixes:
+    result: PASS
+    detail: >-
+      真实浏览器截图逐项目检（frontend/test-results/qa/ui-*.png 复验轮重新生成）：
+      F-004 图例（流入/流出）置顶于绘图区上方，1920/390 均不与 X 轴/柱条重叠（grid top 44/bottom 24 预留生效）；
+      F-005 支出分类图 390px 刻度精简为 0/10,000/20,000/30,000（splitNumber 3 + hideOverlap），无重叠；
+      F-006 收款单筛选「收款日期」标签横排完整显示（whitespace-nowrap，1920/390 均生效）；
+      F-007 收款单/应收列表/应收详情关键列 min-width 96px + 不换行，390px 下列横排可读、容器内滚动、页面无横向溢出（computed style 断言 + 截图双证）；
+      F-008 日期控件下可见「格式 YYYY-MM-DD · 2026-11-30」提示与业务日期回显（aria-describedby 关联）；
+      无新视觉缺陷（信息层级/金额对齐/状态色/空态/键盘可访问性复检正常）。
+      computed style 断言已固化进 qa-cross-page.spec.ts「复验轮：视觉修复回归」测试。
+  item_7_report_correction:
+    result: PASS
+    detail: >-
+      已修正上轮报告表述并以基线重建实证还原历史事实（见下方「历史产物结论复核」）。
+      核心修正：上轮"扫描 4 文件"指 dist 599 个文件中的 4 个文本文件做内容扫描（595 个字体二进制不含文本特征），
+      表述已改为完整口径；产物消除结论经基线重建复现核实。
+
+historical_facts_recheck:
+  method: >-
+    基线重建实证：git worktree 以上轮代码（93fe4aa）独立检出，共享 node_modules，
+    `npx vite build` 重新生产构建，用同一增强扫描器（完整递归 + 字面/转义双形态）全量扫描。
+  baseline_result:
+    dist_files: "599 个文件（4 文本 748,093 字节 + 595 字体二进制），17,505,505 字节"
+    chunks: "index.html + index-BMTK34im.css + DesignSystemView-CeOeVTkr.js + index-CTBb_beJ.js（与上轮构建输出逐一同名同哈希，构建确定性复现）"
+    hits: "4 处，全部位于 DesignSystemView-CeOeVTkr.js：'示例客户 A'、'示例客户'（动态生成 B–H）、'虚构测试数据'、'Color Tokens'（均为字面形态，无 \u 转义副本）"
+    fixtures_absent: "'DEMO_TODAY'、'2026-11-30'、'AR-2026-0024'、'SK-2026-0008'、'FT-2026-0022'、'demo-rc-001'、'示例供应商甲'、'示例股东甲'、'虚构演示数据'、'跨模块演示场景' 0 命中（ASCII 特征不受转义影响，交叉验证成立）"
+  conclusion: >-
+    上轮报告的产物消除结论（业务演示 chunk/fixtures/Mock Store 已被消除、唯一泄漏为 DesignSystemView 展示 chunk）
+    经重建复现属实；"4 文件"为文本扫描口径，已修正为 599 文件完整口径。
+    与「全部演示 chunk 均在产物中」的差异最可能源于扫描时机：`npm run build:test`（e2e webServer 构建，test 模式）
+    的 dist 按设计**包含全部演示 chunk**，若在 e2e 运行后、`npm run build`（production 模式）前扫描即会观察到
+    演示 chunk 全量存在；production 模式构建下业务演示 chunk 被消除为可复现事实（同哈希重建）。
+    两种观察并不矛盾：test 模式产物含演示数据属预期（E2E 依赖），生产模式产物仅 DesignSystemView 一处泄漏（F-001，现已修复清零）。
+
+findings:
+  regression_scan: none
+  status:
+    - { id: F-001, severity: P1, status: RESOLVED_VERIFIED, evidence: "产物 0 命中（双形态增强扫描）+ DesignSystemView chunk 不复存在 + 5/5 路由行为不可用；机制改为 import.meta.env.MODE 静态折叠（含 /dev/design-system 全部演示导入），DECISION_LOG 已记录" }
+    - { id: F-002, severity: P2, status: RESOLVED_VERIFIED, evidence: "contracts/labels.ts V1.1 单一来源（标准标签 + 图表短标签显式别名，经主 Agent 契约变更批准）；dashboard/treasury 均改由单一来源导出；chartData.test 断言统一文案'加工费回款'；无本地重复映射残留（grep 核对）" }
+    - { id: F-003, severity: P3, status: RESOLVED_VERIFIED, evidence: "DESIGN_SYSTEM.md §4 更新为'表格右对齐 + 指标区统一左对齐基线'并注明 Phase 0.2 调整；DECISION_LOG 3 条整改记录齐全" }
+    - { id: F-004, severity: P3, status: RESOLVED_VERIFIED, evidence: "图例 top:'top' + grid 预留；1920/390 截图无重叠" }
+    - { id: F-005, severity: P3, status: RESOLVED_VERIFIED, evidence: "splitNumber 3 + hideOverlap；390 截图刻度 0/10,000/20,000/30,000 无重叠" }
+    - { id: F-006, severity: P3, status: RESOLVED_VERIFIED, evidence: "标签 whitespace-nowrap + shrink-0；1920/390 截图横排；computed style 断言进 qa spec" }
+    - { id: F-007, severity: P3, status: RESOLVED_VERIFIED, evidence: "收款/应收/详情三处关键列 min-w-24（96px）+ nowrap；390 截图列横排可读、容器内滚动无页面溢出；computed style 断言进 qa spec" }
+    - { id: F-008, severity: P3, status: RESOLVED_VERIFIED, evidence: "DateField 格式提示'格式 YYYY-MM-DD · <业务日期>' + aria-describedby；截图与断言双证" }
+
+summary_counts:
+  total_findings_first_round: 8
+  resolved_verified: 8
+  new_findings_this_round: 0
+
+overall_status:
+  P02_H: VERIFIED
+  INDEPENDENT_QA: PASS
+  open_P0: 0
+  open_P1: 0
+  reason: >-
+    全部 8 项发现（1×P1、1×P2、6×P3）经复验修复生效并有证据固化；强制跨页面场景（同一会话）与附加场景
+    S2–S6 全绿；单测 300/300、全量 e2e 96/96、prod-guard 1/1、演示路由 5/5 不可用、
+    生产产物特征字符串 0 命中（字面+转义双形态、完整递归 598 文件）；回归扫描无新缺陷。
+    满足 STOP CONDITION：P02_H = VERIFIED 且 OPEN_P0=0、OPEN_P1=0、INDEPENDENT_QA = PASS。
 ```
