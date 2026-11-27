@@ -15,6 +15,7 @@
 
 import { compareAmounts, subtractAmounts, type DecimalString } from '@/utils/decimal'
 import { normalizeAmount } from '@/utils/money'
+import { DEMO_TODAY } from '../contracts'
 import type {
   AllocationPreview,
   AutoAllocateReceiptCommand,
@@ -192,7 +193,9 @@ function buildPreview(
 
 /**
  * 确认前校验（确认路径的最终防线，返回错误列表，空数组表示可确认）：
- * 核销核心校验 + 到账日期/资金账户/幂等键校验。
+ * 核销核心校验 + 到账日期（真实公历且 ≤ DEMO_TODAY）/资金账户/幂等键校验。
+ * 业务日期一致性在 Store/Domain 层强制（禁止仅 UI 限制）：
+ * 实际到账日期为未来日期（> DEMO_TODAY）必须拒绝，DEMO_TODAY 当日允许。
  */
 export function validateReceiptAllocation(
   cmd: ConfirmReceiptCommand,
@@ -202,6 +205,12 @@ export function validateReceiptAllocation(
 
   if (!isValidLocalDate(cmd.receiptDate)) {
     errors.push(bizError('VALIDATION_ERROR', '到账日期格式非法', { receiptDate: '到账日期必须为真实存在的 YYYY-MM-DD 日期' }))
+  } else if (cmd.receiptDate > DEMO_TODAY) {
+    errors.push(
+      bizError('VALIDATION_ERROR', `实际到账日期不得晚于演示基准日 ${DEMO_TODAY}（未来日期收款必须拒绝）`, {
+        receiptDate: `实际到账日期不得为未来日期（≤ ${DEMO_TODAY}）`,
+      }),
+    )
   }
 
   const account = context.fundAccounts.find((item) => item.id === cmd.accountId)

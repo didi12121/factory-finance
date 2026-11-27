@@ -55,9 +55,17 @@ import { canonicalAmount2 } from '../domain/amounts'
 import { isValidAccountingMonth, isValidLocalDate } from '../domain/dateRules'
 import { buildReceivableView, buildReceivableViews } from '../domain/receivable'
 import { computeDashboardSummary } from '../domain/reporting'
-import { hashReceiptCommandParams } from './idempotency'
+import {
+  canonicalReceiptCommandParams,
+  hashReceiptCommandParams,
+  normalizeIdempotencyKey,
+} from './idempotency'
 import { PrototypeBusinessError } from './prototypeErrors'
-import type { PrototypeState } from './state'
+import {
+  getIdempotencyRecord,
+  setIdempotencyRecord,
+  type PrototypeState,
+} from './state'
 
 /* ---------------------------------- 通用工具 ---------------------------------- */
 
@@ -422,13 +430,17 @@ export class MemoryPrototypeRepository implements PrototypeRepository {
    * 确认收款（原子确认，内存一致性）：
    * 读取状态 → 全量校验（含幂等键）→ 构建完整变更（收款单 ×1、资金流入流水 ×1、
    * 核销明细 ×N）→ 一次性提交。任何校验失败：收款单/流水/核销/余额/收入全部不变。
-   * 幂等：同键同参重复提交返回原收款单；同键不同参数（哈希业务参数对比）拒绝。
+   * 幂等：同键同参（规范化参数串直接比较）重复提交返回原收款单；同键不同参数 CONFLICT 拒绝；
+   * 哈希仅作索引优化，不作唯一判据。
    */
   async confirmReceipt(command: ConfirmReceiptCommand): Promise<Receipt> {
+    const idempotencyKey = normalizeIdempotencyKey(command.idempotencyKey)
+    const canonicalParams = canonicalReceiptCommandParams(command)
     const paramsHash = hashReceiptCommandParams(command)
-    const existing = this.state.idempotencyRecords[command.idempotencyKey]
+    const existing = getIdempotencyRecord(this.state.idempotencyRecords, idempotencyKey)
     if (existing !== undefined) {
-      if (existing.paramsHash !== paramsHash) {
+      // 等价性判据：规范化参数串直接比较（哈希仅索引优化）
+      if (existing.canonicalParams !== canonicalParams) {
         throw new PrototypeBusinessError([
           bizError('CONFLICT', '同一幂等键的业务参数不一致，拒绝重复提交', {
             idempotencyKey: '幂等键与既有收款单的业务参数不一致',
@@ -475,7 +487,7 @@ export class MemoryPrototypeRepository implements PrototypeRepository {
       fundTransactionId: transactionId,
       externalRef: command.externalRef,
       remark: command.remark,
-      idempotencyKey: command.idempotencyKey,
+      idempotencyKey,
     }
     const transaction: FundTransaction = {
       id: transactionId,
@@ -507,7 +519,13 @@ export class MemoryPrototypeRepository implements PrototypeRepository {
     this.state.receipts.push(receipt)
     this.state.fundTransactions.push(transaction)
     this.state.receiptAllocations.push(...allocations)
-    this.state.idempotencyRecords[command.idempotencyKey] = { receiptId, paramsHash }
+    // 幂等索引写入（自有属性写入，'__proto__' 等键不污染原型链）：
+    // canonicalParams 直接比较为等价性判据，paramsHash 仅索引优化
+    setIdempotencyRecord(this.state.idempotencyRecords, idempotencyKey, {
+      receiptId,
+      canonicalParams,
+      paramsHash,
+    })
 
     return cloneEntity(receipt)
   }
@@ -590,6 +608,15 @@ function cloneReceivableView(view: ReceivableView): ReceivableView {
 
 /* ---------------------------------- 创建应收校验 ---------------------------------- */
 
+/**
+ * 新建应收单校验（业务日期一致性，Store/Domain 层强制，禁止仅 UI 限制）：
+ * - 会计期间：格式合法（YYYY-MM）且 ≤ DEMO_TODAY 所在月——未来月份不得创建；
+ * - 对账日期：真实公历日期且 ≤ DEMO_TODAY——未来日期不得创建（DEMO_TODAY 当日允许）；
+ * - 到期日期：可为未来（仅影响逾期派生），但不得早于对账日期；
+ * - 收入确认口径：按 accountingMonth 归属；当前原型不支持未来收入确认，
+ *   报告层（domain/reporting.ts）对 未来月/未来确认日期 单据做防御性过滤；
+ * - 全部校验先行、失败零状态变化；禁止引入预计收入/预计回款/预收款会计规则。
+ */
 function validateCreateReceivableCommand(
   command: CreateReceivableCommand,
   customers: Customer[],
@@ -603,11 +630,24 @@ function validateCreateReceivableCommand(
     errors.push(bizError('VALIDATION_ERROR', '客户已停用，不可登记新应收单', { customerId: '客户已停用' }))
   }
 
+  const demoMonth = DEMO_TODAY.slice(0, 7)
   if (!isValidAccountingMonth(command.accountingMonth)) {
     errors.push(bizError('VALIDATION_ERROR', '会计期间格式非法（应为 YYYY-MM）', { accountingMonth: '会计期间格式非法' }))
+  } else if (command.accountingMonth > demoMonth) {
+    errors.push(
+      bizError('VALIDATION_ERROR', `会计期间不得晚于演示基准月 ${demoMonth}（未来月份不得创建/确认）`, {
+        accountingMonth: `会计期间不得晚于演示基准月 ${demoMonth}`,
+      }),
+    )
   }
   if (!isValidLocalDate(command.statementDate)) {
     errors.push(bizError('VALIDATION_ERROR', '对账日期格式非法', { statementDate: '对账日期必须为真实存在的 YYYY-MM-DD 日期' }))
+  } else if (command.statementDate > DEMO_TODAY) {
+    errors.push(
+      bizError('VALIDATION_ERROR', `对账日期不得晚于演示基准日 ${DEMO_TODAY}（未来日期不得创建）`, {
+        statementDate: `对账日期不得晚于演示基准日 ${DEMO_TODAY}`,
+      }),
+    )
   }
   if (command.dueDate !== null) {
     if (!isValidLocalDate(command.dueDate)) {
