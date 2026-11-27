@@ -1,0 +1,230 @@
+{
+  "mode": "production",
+  "dist": "D:\\env\\factory-finance-worktrees\\agent-c-frontend\\frontend\\dist",
+  "expectDemo": false,
+  "filesScanned": 616,
+  "bytesScanned": 18827627,
+  "extensions": {
+    ".js": 19,
+    ".css": 1,
+    ".woff2": 301,
+    ".woff": 294,
+    ".html": 1
+  },
+  "forbiddenFeatures": [
+    {
+      "id": "confirmReceipt",
+      "category": "mock-store",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "createReceivable",
+      "category": "mock-store",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "autoAllocateReceipt",
+      "category": "mock-store",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "previewReceiptAllocation",
+      "category": "mock-store",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "recomputeAccountBalance",
+      "category": "mock-store",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "getDashboardSummary",
+      "category": "mock-store",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "idempotencyKey",
+      "category": "mock-store",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "listReceipts",
+      "category": "mock-store",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "示例客户",
+      "category": "fixture",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "示例供应商",
+      "category": "fixture",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "示例股东",
+      "category": "fixture",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "示例物业",
+      "category": "fixture",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "虚构演示数据",
+      "category": "fixture",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "虚构测试数据",
+      "category": "fixture",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "虚构",
+      "category": "fixture",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "跨模块演示场景",
+      "category": "fixture",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "DEMO_TODAY",
+      "category": "fixture",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "2026-11-30",
+      "category": "fixture",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "AR-2026-",
+      "category": "fixture",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "SK-2026-",
+      "category": "fixture",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "FT-2026-",
+      "category": "fixture",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "demo-rc-",
+      "category": "fixture",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "BANK-REF-",
+      "category": "fixture",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "cust-a",
+      "category": "fixture",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "acct-bank",
+      "category": "fixture",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "收款单",
+      "category": "fixture",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "登记回款",
+      "category": "fixture",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "Color Tokens",
+      "category": "design-system",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "XS-2026-",
+      "category": "design-system",
+      "hits": 0,
+      "files": []
+    },
+    {
+      "id": "组件展示页",
+      "category": "design-system",
+      "hits": 0,
+      "files": []
+    }
+  ],
+  "forbiddenTotalHits": 0,
+  "skeleton": [
+    {
+      "id": "工厂财务",
+      "hits": 4
+    },
+    {
+      "id": "工作台",
+      "hits": 1
+    },
+    {
+      "id": "经营概览",
+      "hits": 5
+    },
+    {
+      "id": "资金管理",
+      "hits": 1
+    },
+    {
+      "id": "业务管理",
+      "hits": 1
+    },
+    {
+      "id": "应收账款",
+      "hits": 2
+    },
+    {
+      "id": "该功能尚未实现",
+      "hits": 1
+    }
+  ],
+  "skeletonOk": true,
+  "forbiddenChunkNames": [],
+  "pass": true
+}
