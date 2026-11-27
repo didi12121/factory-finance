@@ -412,6 +412,21 @@ describe('ReceivablesView — 登记回款路径（冻结契约）', () => {
   })
 })
 
+describe('ReceivablesView — 移动端列最小宽度（QA F-007）', () => {
+  it('每行 11 列内容均含 min-w-24 且不换行（容器内横滚前提）', async () => {
+    await setup()
+    const firstRow = qa('[data-testid="receivables-table"] tbody tr')[0]
+    const cells = Array.from(firstRow?.querySelectorAll('td') ?? [])
+    expect(cells.length).toBe(11)
+    for (const cell of cells) {
+      const content = cell.querySelector('.min-w-24')
+      expect(content, `${cell.textContent ?? ''} 缺少最小宽度容器`).not.toBeNull()
+      expect((content as HTMLElement).className).toContain('whitespace-nowrap')
+    }
+    afterEachCleanup()
+  })
+})
+
 describe('ReceivablesView — 加载错误状态', () => {
   it('数据加载失败展示错误状态，重试后恢复列表', async () => {
     mounted = await mountView(ReceivablesView, '/business/receivables', (store) => {

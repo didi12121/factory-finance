@@ -162,10 +162,20 @@ const rows = computed(() =>
 
 /* ---------------------------- 列定义（金额列 compareAmounts 精确排序） ---------------------------- */
 
+/**
+ * 移动端列最小宽度（QA F-007）：关键列内容保持 ≥ 96px 且不换行，
+ * 表格容器内横向滚动（Table 根节点 overflow-x-auto），页面保持无非预期横向溢出。
+ */
+function cellMinWidth(content: VNode | string): VNode {
+  return h('span', { class: 'inline-block min-w-24 whitespace-nowrap align-middle' }, content)
+}
+
 function dueDateCell(value: string | null): VNode {
-  return value === null
-    ? h('span', { class: 'text-caption text-text-muted' }, '—')
-    : h('span', { class: 'tabular text-table text-text-primary' }, value)
+  return cellMinWidth(
+    value === null
+      ? h('span', { class: 'text-caption text-text-muted' }, '—')
+      : h('span', { class: 'tabular text-table text-text-primary' }, value),
+  )
 }
 
 const columnHelper = createColumnHelper<ReceivableRow>()
@@ -173,21 +183,30 @@ const columns: ColumnDef<ReceivableRow, string>[] = [
   columnHelper.accessor('statementNo', {
     header: '对账单编号',
     cell: (info) =>
-      h(
-        RouterLink,
-        {
-          to: `/business/receivables/${info.row.original.id}`,
-          class: 'inline-flex items-center rounded-control hover:text-brand-foreground focus-visible:outline-2',
-          'aria-label': `查看应收单 ${info.row.original.statementNo}`,
-        },
-        () => h(DocumentNumber, { value: info.row.original.statementNo }),
+      cellMinWidth(
+        h(
+          RouterLink,
+          {
+            to: `/business/receivables/${info.row.original.id}`,
+            class: 'inline-flex items-center rounded-control hover:text-brand-foreground focus-visible:outline-2',
+            'aria-label': `查看应收单 ${info.row.original.statementNo}`,
+          },
+          () => h(DocumentNumber, { value: info.row.original.statementNo }),
+        ),
       ),
   }),
-  columnHelper.accessor('customerName', { header: '客户' }),
-  columnHelper.accessor('accountingMonth', { header: '所属月份' }),
+  columnHelper.accessor('customerName', {
+    header: '客户',
+    cell: (info) => cellMinWidth(info.row.original.customerName),
+  }),
+  columnHelper.accessor('accountingMonth', {
+    header: '所属月份',
+    cell: (info) => cellMinWidth(info.row.original.accountingMonth),
+  }),
   columnHelper.accessor('statementDate', {
     header: '对账日期',
-    cell: (info) => h('span', { class: 'tabular text-table text-text-primary' }, info.row.original.statementDate),
+    cell: (info) =>
+      cellMinWidth(h('span', { class: 'tabular text-table text-text-primary' }, info.row.original.statementDate)),
   }),
   // 非纯字符串字段用 accessor 函数统一为 string TValue（列值展示一律读 row.original）
   columnHelper.accessor((row: ReceivableRow): string => row.dueDate ?? '', {
@@ -201,19 +220,19 @@ const columns: ColumnDef<ReceivableRow, string>[] = [
     header: '应收金额',
     meta: { align: 'right' },
     sortingFn: amountSortingFn,
-    cell: (info) => h(MoneyText, { value: info.row.original.originalAmount, size: 'table' }),
+    cell: (info) => cellMinWidth(h(MoneyText, { value: info.row.original.originalAmount, size: 'table' })),
   }),
   columnHelper.accessor('paidAmount', {
     header: '已收金额',
     meta: { align: 'right' },
     sortingFn: amountSortingFn,
-    cell: (info) => h(MoneyText, { value: info.row.original.paidAmount, size: 'table' }),
+    cell: (info) => cellMinWidth(h(MoneyText, { value: info.row.original.paidAmount, size: 'table' })),
   }),
   columnHelper.accessor('outstandingAmount', {
     header: '未收金额',
     meta: { align: 'right' },
     sortingFn: amountSortingFn,
-    cell: (info) => h(MoneyText, { value: info.row.original.outstandingAmount, size: 'table' }),
+    cell: (info) => cellMinWidth(h(MoneyText, { value: info.row.original.outstandingAmount, size: 'table' })),
   }),
   columnHelper.accessor((row: ReceivableRow): string => row.status, {
     id: 'status',
@@ -221,10 +240,12 @@ const columns: ColumnDef<ReceivableRow, string>[] = [
     sortingFn: (a: Row<ReceivableRow>, b: Row<ReceivableRow>) =>
       compareRowStatus(a.original.status, b.original.status),
     cell: (info) =>
-      h(FinancialStatus, {
-        status: STATUS_LABELS[info.row.original.status],
-        kind: statusKind(info.row.original.status),
-      }),
+      cellMinWidth(
+        h(FinancialStatus, {
+          status: STATUS_LABELS[info.row.original.status],
+          kind: statusKind(info.row.original.status),
+        }),
+      ),
   }),
   columnHelper.accessor((row: ReceivableRow): string => (row.isOverdue ? 'Y' : ''), {
     id: 'isOverdue',
@@ -235,16 +256,18 @@ const columns: ColumnDef<ReceivableRow, string>[] = [
       return left === right ? 0 : left ? 1 : -1
     },
     cell: (info) =>
-      info.row.original.isOverdue
-        ? h(FinancialStatus, { status: '逾期', kind: 'danger' })
-        : h('span', { class: 'text-caption text-text-muted' }, '—'),
+      cellMinWidth(
+        info.row.original.isOverdue
+          ? h(FinancialStatus, { status: '逾期', kind: 'danger' })
+          : h('span', { class: 'text-caption text-text-muted' }, '—'),
+      ),
   }),
   {
     id: 'actions',
     header: '操作',
     meta: { align: 'right' },
     cell: (info) =>
-      h('div', { class: 'flex items-center justify-end gap-1' }, [
+      h('div', { class: 'flex min-w-24 items-center justify-end gap-1 whitespace-nowrap' }, [
         h(
           Button,
           {

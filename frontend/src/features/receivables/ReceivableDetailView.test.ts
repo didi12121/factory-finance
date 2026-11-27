@@ -111,6 +111,19 @@ describe('ReceivableDetailView — 详情数据（store 派生，单一数据源
 })
 
 describe('ReceivableDetailView — 登记回款入口（冻结契约）', () => {
+  it('回款记录/核销明细单元格含 min-w-24 最小宽度容器（QA F-007）', async () => {
+    mounted = await mountView(ReceivableDetailView, '/business/receivables/ar-004')
+    for (const testId of ['receipt-records', 'allocation-details']) {
+      const section = q(testId === 'receipt-records' ? '[data-testid="receipt-records"]' : '[data-testid="allocation-details"]')
+      const cells = Array.from(section?.querySelectorAll('tbody td') ?? [])
+      expect(cells.length).toBeGreaterThan(0)
+      for (const cell of cells) {
+        expect(cell.querySelector('.min-w-24')).not.toBeNull()
+      }
+    }
+    afterEachCleanup()
+  })
+
   it('登记回款跳转 /business/processing-fee?action=create&customerId&receivableId', async () => {
     mounted = await mountView(ReceivableDetailView, '/business/receivables/ar-004')
     const button = findButton('登记回款')

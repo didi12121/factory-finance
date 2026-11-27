@@ -271,6 +271,23 @@ test.describe('移动端（390×844）', () => {
     await expect(dialog).toBeHidden()
   })
 
+  test('移动端关键列最小宽度 ≥ 96px（QA F-007：容器内横向滚动，页面无溢出）', async ({ page }) => {
+    await gotoList(page)
+    const cells = tableRows(page).first().locator('td')
+    const count = await cells.count()
+    expect(count).toBe(11)
+    for (let i = 0; i < count; i++) {
+      const width = (await cells.nth(i).boundingBox())?.width ?? 0
+      expect(width, `第 ${i + 1} 列最小宽度`).toBeGreaterThanOrEqual(96)
+    }
+
+    // 页面保持无非预期横向溢出；宽表格在容器内横向滚动
+    expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0)
+    const scroller = page.getByTestId('receivables-table').locator('div.overflow-x-auto').first()
+    const sizes = await scroller.evaluate((el) => ({ scroll: el.scrollWidth, client: el.clientWidth }))
+    expect(sizes.scroll).toBeGreaterThan(sizes.client)
+  })
+
   test('移动端详情页可用且无横向溢出', async ({ page }) => {
     await page.goto(`${RECEIVABLES_URL}/ar-004`)
     await expect(page.getByTestId('detail-summary')).toBeVisible()
