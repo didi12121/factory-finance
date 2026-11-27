@@ -9,10 +9,12 @@ function lastEmit(wrapper: ReturnType<typeof mount>, event: string): unknown {
   return emitted?.at(-1)?.[0]
 }
 
-/** 真实父组件 v-model 场景：表单持有金额状态，提交走 validate() */
+/** 真实父组件 v-model 场景：表单持有金额状态，提交走 validate()；required/externalError 由父组件响应式驱动 */
 function mountForm(options: { required?: boolean; externalError?: string; initial?: string } = {}) {
   const amount = ref(options.initial ?? '')
-  const validFlag = ref(true)
+  const validFlag = ref<boolean | null>(null)
+  const required = ref(options.required ?? false)
+  const externalError = ref<string | undefined>(options.externalError)
   let childRef: { validate: () => boolean; reset: () => void } | null = null
 
   const Parent = defineComponent({
@@ -28,8 +30,8 @@ function mountForm(options: { required?: boolean; externalError?: string; initia
             'onUpdate:valid': (value: boolean) => {
               validFlag.value = value
             },
-            required: options.required ?? false,
-            externalError: options.externalError,
+            required: required.value,
+            externalError: externalError.value,
             ref: (instance: unknown) => {
               childRef = instance as { validate: () => boolean; reset: () => void }
             },
@@ -43,6 +45,8 @@ function mountForm(options: { required?: boolean; externalError?: string; initia
     wrapper,
     amount,
     validFlag,
+    required,
+    externalError,
     submit: () => (childRef as unknown as { validate: () => boolean }).validate(),
     reset: () => (childRef as unknown as { reset: () => void }).reset(),
     input: () => wrapper.get('input'),
@@ -205,5 +209,98 @@ describe('AmountInput 业务金额校验（DECIMAL(18,2)）', () => {
     form.amount.value = ''
     await nextTick()
     expect((form.input().element as HTMLInputElement).value).toBe('')
+  })
+})
+
+describe('AmountInput 初始化与动态状态通知契约', () => {
+  it('必填初始空值 → 初始化即同步 update:valid=false（immediate，无须交互）', () => {
+    const wrapper = mount(AmountInput, { props: { modelValue: '', required: true } })
+    expect(wrapper.emitted('update:valid')).toEqual([[false]])
+  })
+
+  it('非必填初始空值 → 初始化即同步 update:valid=true', () => {
+    const wrapper = mount(AmountInput, { props: { modelValue: '' } })
+    expect(wrapper.emitted('update:valid')).toEqual([[true]])
+  })
+
+  it('初始合法金额 → 初始化即同步 update:valid=true', () => {
+    const wrapper = mount(AmountInput, { props: { modelValue: '1850.39' } })
+    expect(wrapper.emitted('update:valid')).toEqual([[true]])
+  })
+
+  it('初始非法金额（modelValue=1e5）→ 初始化即同步 update:valid=false 且立即展示错误', () => {
+    const wrapper = mount(AmountInput, { props: { modelValue: '1e5' } })
+    expect(wrapper.emitted('update:valid')).toEqual([[false]])
+    expect(wrapper.find('[role="alert"]').exists()).toBe(true)
+  })
+
+  it('动态 required（true→false→true）→ valid 同步重算', async () => {
+    const form = mountForm({ required: true })
+    await nextTick()
+    expect(form.validFlag.value).toBe(false)
+
+    form.required.value = false
+    await nextTick()
+    expect(form.validFlag.value).toBe(true)
+
+    form.required.value = true
+    await nextTick()
+    expect(form.validFlag.value).toBe(false)
+    expect(form.submit()).toBe(false)
+  })
+
+  it('动态 externalError（出现→清除）→ valid 与 validate() 同步重算', async () => {
+    const form = mountForm({ initial: '100.00' })
+    await nextTick()
+    expect(form.validFlag.value).toBe(true)
+    expect(form.submit()).toBe(true)
+
+    form.externalError.value = '超出预算限额'
+    await nextTick()
+    expect(form.validFlag.value).toBe(false)
+    expect(form.submit()).toBe(false)
+    expect(form.wrapper.find('[role="alert"]').text()).toContain('超出预算限额')
+
+    form.externalError.value = undefined
+    await nextTick()
+    expect(form.validFlag.value).toBe(true)
+    expect(form.submit()).toBe(true)
+  })
+
+  it('valid 通知去重：同一状态不重复 emit（输入驱动）', async () => {
+    const wrapper = mount(AmountInput, { props: { modelValue: '' } })
+    // 初始化恰好一次 true
+    expect(wrapper.emitted('update:valid')).toEqual([[true]])
+
+    // 连续合法输入：valid 保持 true，不重复通知
+    await wrapper.get('input').setValue('12.34')
+    await wrapper.get('input').setValue('123.45')
+    expect(wrapper.emitted('update:valid')).toEqual([[true]])
+
+    // 合法→非法：恰好一次 false
+    await wrapper.get('input').setValue('1e5')
+    expect(wrapper.emitted('update:valid')).toEqual([[true], [false]])
+
+    // 非法→合法：恰好一次 true
+    await wrapper.get('input').setValue('200')
+    expect(wrapper.emitted('update:valid')).toEqual([[true], [false], [true]])
+  })
+
+  it('valid 通知去重：externalError 文案变化但整体状态不变时不重复 emit', async () => {
+    const wrapper = mount(AmountInput, { props: { modelValue: '100.00' } })
+    expect(wrapper.emitted('update:valid')).toEqual([[true]])
+
+    await wrapper.setProps({ externalError: '错误A' })
+    expect(wrapper.emitted('update:valid')).toEqual([[true], [false]])
+
+    // 文案变化但仍然 invalid：不重复通知
+    await wrapper.setProps({ externalError: '错误B' })
+    expect(wrapper.emitted('update:valid')).toEqual([[true], [false]])
+
+    // 清除外部错误：恰好一次 true
+    await wrapper.setProps({ externalError: '' })
+    expect(wrapper.emitted('update:valid')).toEqual([[true], [false], [true]])
+    const vm = wrapper.vm as unknown as { validate: () => boolean }
+    expect(vm.validate()).toBe(true)
   })
 })
