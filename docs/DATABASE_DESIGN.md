@@ -53,12 +53,20 @@
 | id | BIGINT | 内部主键 |
 | transaction_no | VARCHAR(32) | 流水编号，唯一 |
 | account_id | BIGINT | 资金账户（→ tst_fund_account.id） |
-| direction | VARCHAR(8) | IN / OUT / TRANSFER |
+| direction | VARCHAR(8) | **IN / OUT**（单条账户流水方向二选一） |
 | amount | DECIMAL(18,2) | 金额（正数） |
 | biz_date | DATE | 业务发生日期 |
 | pay_date | DATE | 实际收付款日期 |
 | counterparty_type | VARCHAR(32) | 对手方类型（客户/供应商/股东/内部） |
 | source_type / source_id | VARCHAR(32) / BIGINT | 来源单据类型与 ID（回溯链） |
+
+**内部转账模型（统一描述，待架构师确认具体落库）**：
+
+- 单条账户流水方向为 IN 或 OUT。
+- 内部转账作为独立业务单据。
+- 一笔内部转账对应来源账户 OUT 和目标账户 IN 两条关联流水。
+- 两条流水金额相等，事务原子提交。
+- 内部转账不产生营业收入、费用或整体资金净变化。
 | remark | VARCHAR(255) | 备注 |
 
 **客户 `mst_customer`**：id、customer_no（唯一）、name、contact、phone、address、status + 审计字段。
@@ -167,7 +175,7 @@
 | debit_amount | DECIMAL(18,2) | 借方金额（默认 0） |
 | credit_amount | DECIMAL(18,2) | 贷方金额（默认 0） |
 
-约束（草案）：每条分录借贷方至少一方为正；同一凭证 `SUM(debit) = SUM(credit)`；已过账凭证的分录不可 UPDATE/DELETE，更正通过冲销凭证（`reversal_of_voucher_id` 关联，待架构师确认）。
+约束（草案）：**借方金额与贷方金额必须且只能有一方大于零，另一方等于零**；同一凭证 `SUM(debit) = SUM(credit)`；已过账凭证的分录不可 UPDATE/DELETE，更正通过冲销凭证（`reversal_of_voucher_id` 关联，待架构师确认）。
 
 ## 4. 实体关系概览
 
@@ -193,8 +201,8 @@ rec_receipt / pay_payment ──引用──> tst_fund_transaction
 6. 期初余额迁移表与迁移校验方案（待架构师确认）。
 7. 附件（`attachment`）与审计日志（`audit`）表结构。
 8. 分区、归档、大表性能策略（当前规模暂不需要，待架构师确认）。
-9. **账户间转账**必须明确来源账户、目标账户及成对资金变动（一笔转账对应两条方向相反、可互相勾稽的资金流水），表结构与约束待架构师确认。
-10. **会计分录单边性**：每条会计分录必须满足借方或贷方只有一方为正、另一方为零（禁止双边同时为正），约束落库方式（CHECK 约束或应用层强校验）待架构师确认。
-11. **软删除与冲销规则**：已确认财务业务不得通过普通软删除（`deleted` 标志）绕过冲销规则；作废/更正必须走冲销凭证或明确的撤销流程并留痕，具体状态机待架构师确认。
+9. **账户间转账（内部转账）**：内部转账作为独立业务单据；一笔内部转账对应来源账户 OUT 和目标账户 IN 两条关联流水，两条流水金额相等、事务原子提交，不产生营业收入、费用或整体资金净变化。具体表结构与约束待架构师确认。
+10. **会计分录单边性**：借方金额与贷方金额必须且只能有一方大于零，另一方等于零（禁止双边同时为正、禁止双边同时为零），约束落库方式（CHECK 约束或应用层强校验）待架构师确认。
+11. **软删除与撤销/冲销规则**：已确认财务业务不得通过软删除绕过撤销及冲销规则；作废/更正必须走冲销凭证或明确的撤销流程并留痕，具体状态机待架构师确认。
 12. **Phase 1/2 数据持久化机制**：在接收真实财务数据之前，必须确定完整的业务事实持久化、幂等、撤销、审计及后续凭证生成机制（与 `ACCOUNTING_RULES.md` 第 6.3 节一致），方案待架构师确认。
 13. **模块归属与阶段标记**：基础资金管理（`treasury`/`masterdata`/`identity`/`expense`，Phase 1）与应收应付（`receivable`/`payable`/`shareholder`，Phase 2）的模块归属见 `DEVELOPMENT_ROADMAP.md` 模块归属表，导航阶段标记与路线图保持一致（如调整须同步两处）。

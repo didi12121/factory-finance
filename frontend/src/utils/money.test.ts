@@ -4,7 +4,22 @@ import { formatAmount, isValidAmount, normalizeAmount, parseAmountInput } from '
 
 describe('业务金额格式校验（DECIMAL(18,2)）', () => {
   it('接受合法业务金额', () => {
-    for (const value of ['0.00', '0.01', '-100.00', '1,000.00', '1000.00', '9999999999999999.99', '-9999999999999999.99', '1,000,000,000,000,000.00']) {
+    for (const value of [
+      '0.00',
+      '0.01',
+      '-100.00',
+      '1,000.00',
+      '1000.00',
+      '10,000.00',
+      '100,000.00',
+      '101,000.00',
+      '109,999.99',
+      '-10,000.00',
+      '9,999,999,999,999,999.99',
+      '9999999999999999.99',
+      '-9999999999999999.99',
+      '1,000,000,000,000,000.00',
+    ]) {
       expect(isValidAmount(value), value).toBe(true)
     }
   })
@@ -24,6 +39,9 @@ describe('业务金额格式校验（DECIMAL(18,2)）', () => {
 describe('金额输入归一化', () => {
   it('归一化去除合法千分位与空白', () => {
     expect(normalizeAmount(' 1,000.00 ')).toBe('1000.00')
+    expect(normalizeAmount('10,000.00')).toBe('10000.00')
+    expect(normalizeAmount('-10,000.00')).toBe('-10000.00')
+    expect(normalizeAmount('9,999,999,999,999,999.99')).toBe('9999999999999999.99')
     expect(normalizeAmount('-100.00')).toBe('-100.00')
     expect(normalizeAmount('0.00')).toBe('0.00')
   })

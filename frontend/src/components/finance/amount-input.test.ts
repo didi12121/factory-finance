@@ -1,3 +1,4 @@
+import { defineComponent, h, nextTick, ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 
@@ -8,12 +9,55 @@ function lastEmit(wrapper: ReturnType<typeof mount>, event: string): unknown {
   return emitted?.at(-1)?.[0]
 }
 
+/** 真实父组件 v-model 场景：表单持有金额状态，提交走 validate() */
+function mountForm(options: { required?: boolean; externalError?: string; initial?: string } = {}) {
+  const amount = ref(options.initial ?? '')
+  const validFlag = ref(true)
+  let childRef: { validate: () => boolean; reset: () => void } | null = null
+
+  const Parent = defineComponent({
+    setup() {
+      return () =>
+        h('form', { 'data-testid': 'form' }, [
+          h(AmountInput, {
+            id: 'amount-field',
+            modelValue: amount.value,
+            'onUpdate:modelValue': (value: string) => {
+              amount.value = value
+            },
+            'onUpdate:valid': (value: boolean) => {
+              validFlag.value = value
+            },
+            required: options.required ?? false,
+            externalError: options.externalError,
+            ref: (instance: unknown) => {
+              childRef = instance as { validate: () => boolean; reset: () => void }
+            },
+          }),
+        ])
+    },
+  })
+
+  const wrapper = mount(Parent)
+  return {
+    wrapper,
+    amount,
+    validFlag,
+    submit: () => (childRef as unknown as { validate: () => boolean }).validate(),
+    reset: () => (childRef as unknown as { reset: () => void }).reset(),
+    input: () => wrapper.get('input'),
+  }
+}
+
 describe('AmountInput 业务金额校验（DECIMAL(18,2)）', () => {
   it.each([
     ['0.00', '0.00'],
     ['0.01', '0.01'],
     ['-100.00', '-100.00'],
     ['1,000.00', '1000.00'],
+    ['10,000.00', '10000.00'],
+    ['100,000.00', '100000.00'],
+    ['9,999,999,999,999,999.99', '9999999999999999.99'],
     ['9999999999999999.99', '9999999999999999.99'],
   ])('接受合法金额 %s → %s', async (input, expected) => {
     const wrapper = mount(AmountInput, { props: { modelValue: '' } })
@@ -23,7 +67,7 @@ describe('AmountInput 业务金额校验（DECIMAL(18,2)）', () => {
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
   })
 
-  it.each(['1,2,3', '12,34.56', '1,,000', '1e5', '1.234', '10000000000000000.00'])(
+  it.each(['1,2,3', '12,34.56', '1,,000', '1e5', '1.234', '10000000000000000.00', '10,000,000,000,000,000.00'])(
     '拒绝非法金额 %s',
     async (input) => {
       const wrapper = mount(AmountInput, { props: { modelValue: '' } })
@@ -41,11 +85,13 @@ describe('AmountInput 业务金额校验（DECIMAL(18,2)）', () => {
     expect(lastEmit(wrapper, 'update:modelValue')).toBe('0.50')
   })
 
-  it('输入中间态（如 1.）不报错，失焦后严格校验', async () => {
+  it('输入中间态不展示错误，但不判定为合法金额', async () => {
     const wrapper = mount(AmountInput, { props: { modelValue: '' } })
     const input = wrapper.get('input')
+
     await input.setValue('1.')
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(lastEmit(wrapper, 'update:valid')).toBe(false)
 
     await input.trigger('blur')
     expect(wrapper.find('[role="alert"]').exists()).toBe(true)
@@ -59,37 +105,105 @@ describe('AmountInput 业务金额校验（DECIMAL(18,2)）', () => {
     expect(lastEmit(wrapper, 'update:valid')).toBe(true)
   })
 
-  it('合法金额修改为非法金额后尝试提交：不得提交旧金额', async () => {
-    const wrapper = mount(AmountInput, { props: { modelValue: '' } })
-    const input = wrapper.get('input')
+  it('必填空值无论是否失焦 valid 均为 false', async () => {
+    const form = mountForm({ required: true, initial: '1.00' })
 
-    await input.setValue('1850.39')
-    expect(lastEmit(wrapper, 'update:modelValue')).toBe('1850.39')
+    await form.input().setValue('')
+    expect(form.amount.value).toBe('')
+    expect(form.validFlag.value).toBe(false)
 
-    await input.setValue('1e5')
-    // 非法输入期间 modelValue 清空，杜绝旧金额 1850.39 被提交
-    expect(lastEmit(wrapper, 'update:modelValue')).toBe('')
-    expect(lastEmit(wrapper, 'update:valid')).toBe(false)
-
-    const exposed = wrapper.vm as unknown as { validate: () => boolean }
-    expect(exposed.validate()).toBe(false)
-    expect(lastEmit(wrapper, 'update:modelValue')).toBe('')
+    // 失焦后展示必填错误
+    await form.input().trigger('blur')
+    expect(form.wrapper.find('[role="alert"]').text()).toContain('请输入金额')
+    expect(form.submit()).toBe(false)
   })
 
-  it('空值与必填契约', async () => {
-    const optional = mount(AmountInput, { props: { modelValue: '1.00' } })
-    await optional.get('input').setValue('')
-    expect(lastEmit(optional, 'update:modelValue')).toBe('')
-    expect(lastEmit(optional, 'update:valid')).toBe(true)
+  it('合法金额修改为非法金额后提交：不得提交旧金额（真实父组件 v-model）', async () => {
+    const form = mountForm()
 
-    const required = mount(AmountInput, { props: { modelValue: '1.00', required: true } })
-    const requiredInput = required.get('input')
-    await requiredInput.setValue('')
-    await requiredInput.trigger('blur')
-    expect(required.find('[role="alert"]').text()).toContain('请输入金额')
-    expect(lastEmit(required, 'update:valid')).toBe(false)
+    await form.input().setValue('1850.39')
+    await nextTick()
+    expect(form.amount.value).toBe('1850.39')
 
-    const exposed = required.vm as unknown as { validate: () => boolean }
-    expect(exposed.validate()).toBe(false)
+    await form.input().setValue('1e5')
+    await nextTick()
+    expect(form.amount.value).toBe('')
+    expect(form.validFlag.value).toBe(false)
+
+    expect(form.submit()).toBe(false)
+    expect(form.amount.value).toBe('')
+  })
+
+  it('externalError 阻断提交且 valid 为 false（外部校验不可绕过）', async () => {
+    const form = mountForm({ externalError: '超出预算限额' })
+
+    await form.input().setValue('100.00')
+    await nextTick()
+    // 内部金额合法但外部校验不通过：金额保留、整体不可提交
+    expect(form.amount.value).toBe('100.00')
+    expect(form.validFlag.value).toBe(false)
+
+    expect(form.submit()).toBe(false)
+    expect(form.wrapper.find('[role="alert"]').text()).toContain('超出预算限额')
+  })
+
+  it('错误提示 DOM ID 唯一且 aria-describedby 正确关联', async () => {
+    const Parent = defineComponent({
+      setup() {
+        return () =>
+          h('div', [
+            h(AmountInput, { modelValue: '', 'onUpdate:modelValue': () => {}, 'onUpdate:valid': () => {} }),
+            h(AmountInput, { modelValue: '', 'onUpdate:modelValue': () => {}, 'onUpdate:valid': () => {} }),
+          ])
+      },
+    })
+    const wrapper = mount(Parent)
+    const inputs = wrapper.findAll('input')
+
+    await inputs[0]!.setValue('1e5')
+    await inputs[1]!.setValue('1,2,3')
+
+    const describedBy0 = inputs[0]!.attributes('aria-describedby')
+    const describedBy1 = inputs[1]!.attributes('aria-describedby')
+    expect(describedBy0).toBeTruthy()
+    expect(describedBy1).toBeTruthy()
+    expect(describedBy0).not.toBe(describedBy1)
+    expect(wrapper.find(`#${describedBy0}`).exists()).toBe(true)
+    expect(wrapper.find(`#${describedBy1}`).exists()).toBe(true)
+  })
+
+  it('外部表单重置清空输入与错误，再次编辑与失焦行为正常', async () => {
+    const form = mountForm()
+
+    await form.input().setValue('1e5')
+    await nextTick()
+    expect(form.wrapper.find('[role="alert"]').exists()).toBe(true)
+
+    // 外部表单重置（本地草稿清除）
+    form.reset()
+    await nextTick()
+    expect((form.input().element as HTMLInputElement).value).toBe('')
+    expect(form.wrapper.find('[role="alert"]').exists()).toBe(false)
+
+    // 再次编辑并失焦
+    await form.input().setValue('5.5')
+    await form.input().trigger('blur')
+    expect(form.amount.value).toBe('5.50')
+    expect(form.wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(form.submit()).toBe(true)
+  })
+
+  it('父组件赋予新 modelValue 时同步输入框（外部赋值）', async () => {
+    const form = mountForm({ initial: '1850.39' })
+    await nextTick()
+    expect((form.input().element as HTMLInputElement).value).toBe('1850.39')
+
+    form.amount.value = '9.99'
+    await nextTick()
+    expect((form.input().element as HTMLInputElement).value).toBe('9.99')
+
+    form.amount.value = ''
+    await nextTick()
+    expect((form.input().element as HTMLInputElement).value).toBe('')
   })
 })

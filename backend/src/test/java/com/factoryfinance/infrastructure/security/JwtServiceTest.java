@@ -3,11 +3,16 @@ package com.factoryfinance.infrastructure.security;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.MissingClaimException;
+import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
 
+import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.Date;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -86,5 +91,86 @@ class JwtServiceTest {
                 Base64.getUrlDecoder().decode(token.split("\\.")[0]), StandardCharsets.UTF_8);
 
         assertThat(headerJson).contains("\"alg\":\"" + JwtService.ALGORITHM + "\"");
+    }
+
+    private static SecretKey hmacKey() {
+        return Keys.hmacShaKeyFor("unit-test-secret-key-with-at-least-32-bytes!!".getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static Date inOneMinute() {
+        return new Date(System.currentTimeMillis() + 60_000);
+    }
+
+    @Test
+    void parse_rejects_non_hs256_algorithm() {
+        // HS512 要求密钥 ≥ 512 位（RFC 7518），使用专用长密钥构造"外来"令牌
+        SecretKey hs512Key = Keys.hmacShaKeyFor(
+                "unit-test-secret-key-extended-for-hs512-algorithm-signing-tests-0123456789"
+                        .getBytes(StandardCharsets.UTF_8));
+        String hs512Token = Jwts.builder()
+                .subject("user-1")
+                .issuer("factory-finance")
+                .issuedAt(new Date())
+                .expiration(inOneMinute())
+                .signWith(hs512Key, Jwts.SIG.HS512)
+                .compact();
+
+        JwtService service = service(Duration.ofMinutes(5));
+        assertThat(service.isValid(hs512Token)).isFalse();
+        assertThatThrownBy(() -> service.parseToken(hs512Token)).isInstanceOf(JwtException.class);
+    }
+
+    @Test
+    void parse_rejects_token_without_subject() {
+        String token = Jwts.builder()
+                .issuer("factory-finance")
+                .issuedAt(new Date())
+                .expiration(inOneMinute())
+                .signWith(hmacKey(), Jwts.SIG.HS256)
+                .compact();
+
+        assertThatThrownBy(() -> service(Duration.ofMinutes(5)).parseToken(token))
+                .isInstanceOf(MissingClaimException.class);
+    }
+
+    @Test
+    void parse_rejects_token_without_issued_at() {
+        String token = Jwts.builder()
+                .subject("user-1")
+                .issuer("factory-finance")
+                .expiration(inOneMinute())
+                .signWith(hmacKey(), Jwts.SIG.HS256)
+                .compact();
+
+        assertThatThrownBy(() -> service(Duration.ofMinutes(5)).parseToken(token))
+                .isInstanceOf(MissingClaimException.class);
+    }
+
+    @Test
+    void parse_rejects_token_without_expiration() {
+        String token = Jwts.builder()
+                .subject("user-1")
+                .issuer("factory-finance")
+                .issuedAt(new Date())
+                .signWith(hmacKey(), Jwts.SIG.HS256)
+                .compact();
+
+        assertThatThrownBy(() -> service(Duration.ofMinutes(5)).parseToken(token))
+                .isInstanceOf(MissingClaimException.class);
+    }
+
+    @Test
+    void parse_rejects_wrong_issuer() {
+        String token = Jwts.builder()
+                .subject("user-1")
+                .issuer("evil-issuer")
+                .issuedAt(new Date())
+                .expiration(inOneMinute())
+                .signWith(hmacKey(), Jwts.SIG.HS256)
+                .compact();
+
+        JwtService service = service(Duration.ofMinutes(5));
+        assertThat(service.isValid(token)).isFalse();
+        assertThatThrownBy(() -> service.parseToken(token)).isInstanceOf(JwtException.class);
     }
 }

@@ -31,6 +31,10 @@
 | 2026-11-27 | **Flyway `baseline-on-migrate` 默认关闭** | 整改要求：禁止隐式基线与破坏性初始化；已有非空 schema 须人工审核迁移历史 | `application.yml`；V1 迁移保持注释-only 基线 | 已确认 |
 | 2026-11-27 | JWT 安全基线：**固定 HS256**、密钥 **≥32 字节**、**保留声明不可被附加 claims 覆盖**；非 dev/test 环境禁止占位 Secret（启动即失败） | 整改要求：明确算法与密钥策略、保留声明保护、占位 Secret 治理 | `JwtService`（保留声明过滤 + 显式 `Jwts.SIG.HS256`）、`SecurityStartupValidator`；Trace ID 外部输入限 `^[A-Za-z0-9_-]{8,64}$` | 已确认 |
 | 2026-11-27 | SecurityConfig **CorsConfigurationSource 以独立 Bean 注入** | 整改要求：禁止调用时传入 null 占位参数 | `SecurityConfig` 构造注入，Bean 方法由 `@Value` 提供允许来源 | 已确认 |
+| 2026-11-27 | 金额千分位正则修复：`GROUPED_INT = '[1-9]\\d{0,2}(,\\d{3})+'` | 旧正则首组 `[1-9]{1,3}` 禁止含 0，导致 `10,000.00`/`100,000.00` 等合法金额被拒 | `money.test.ts` 补充合法分组用例；DECIMAL(18,2) 范围校验保留 | 已确认 |
+| 2026-11-27 | AmountInput 契约明确：`valid`/`touched`/`showError` 独立语义；必填空值 `valid` 恒 false；中间态不判合法；`externalError` 阻断 `validate()`；错误 DOM ID 唯一（`useId`）；外部重置语义（新值同步 + `reset()` 清草稿） | Hotfix 评审整改要求（防止提交绕过外部校验、多实例 ID 冲突、重置残留草稿） | 24 个单元测试覆盖全部契约（含真实父组件 v-model 场景） | 已确认 |
+| 2026-11-27 | JWT 解析端使用 JJWT 官方算法白名单 **`sig().add(Jwts.SIG.HS256)`**，必要声明 sub/iss/iat/exp 存在性强校验 | Hotfix 要求：签发与解析均仅允许 HS256、使用正式白名单机制、不依赖未验证 Header | 非 HS256（HS512）、缺声明、错误 issuer、过期、篡改均有拒绝测试 | 已确认 |
+| 2026-11-27 | CORS 抽离独立配置类 **`infrastructure.web.CorsConfig`** | 消除安全配置类对自身 Bean 的构造注入风险 | `CorsPolicyIT` 真实上下文验证允许/拒绝来源（拒绝来源 403 且无 CORS 头；允许来源回显具体 Origin，非通配符） | 已确认 |
 
 ## 记录规则
 

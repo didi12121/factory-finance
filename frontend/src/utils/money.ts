@@ -16,9 +16,9 @@ import { roundToScale, type DecimalString } from './decimal'
 /** DECIMAL(18,2)：整数位最多 16 位 */
 export const MAX_INTEGER_DIGITS = 16
 
-/** 整数部分：无分隔（0 或 1-16 位非前导零数字）或合法千分位分组 */
+/** 整数部分：无分隔（0 或 1-16 位非前导零数字）或合法千分位分组（首组 1-3 位、可含 0） */
 const PLAIN_INT = '(0|[1-9]\\d{0,15})'
-const GROUPED_INT = '[1-9]{1,3}(,\\d{3})+'
+const GROUPED_INT = '[1-9]\\d{0,2}(,\\d{3})+'
 /** 业务金额整体：可选负号 + 整数 + 可选最多两位小数 */
 const BUSINESS_AMOUNT_RE = new RegExp(`^-?(${PLAIN_INT}|${GROUPED_INT})(\\.\\d{1,2})?$`)
 

@@ -6,7 +6,6 @@ import com.factoryfinance.common.web.TraceIdFilter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -18,18 +17,14 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
-import java.util.Arrays;
-import java.util.List;
 
 /**
  * Spring Security 基础安全配置。
  *
  * <p>无状态 API；除健康检查与（非 docker 环境的）API 文档外，所有接口均要求认证。
- * 本阶段不接入正式登录流程，禁止伪造 JWT 或默认放行业务接口。</p>
+ * 本阶段不接入正式登录流程，禁止伪造 JWT 或默认放行业务接口。
+ * CORS 由独立配置类 {@code infrastructure.web.CorsConfig} 提供 Bean 注入。</p>
  */
 @Configuration
 @EnableWebSecurity
@@ -75,21 +70,6 @@ public class SecurityConfig {
                 .logout(AbstractHttpConfigurer::disable)
                 .addFilterBefore(traceIdFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
-    }
-
-    /** CORS 配置以独立 Bean 定义并注入，禁止调用时传入 null 等占位参数 */
-    @Bean
-    public CorsConfigurationSource corsConfigurationSource(
-            @Value("${app.cors.allowed-origins:http://localhost:5173}") String allowedOrigins) {
-        CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(Arrays.stream(allowedOrigins.split(",")).map(String::trim).toList());
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        config.setAllowedHeaders(List.of("*"));
-        config.setExposedHeaders(List.of(TraceIdFilter.TRACE_HEADER));
-        config.setMaxAge(3600L);
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-        source.registerCorsConfiguration("/**", config);
-        return source;
     }
 
     private AccessDeniedHandler accessDeniedHandler() {
