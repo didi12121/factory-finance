@@ -63,8 +63,8 @@
 
 ## GitHub Actions
 
-- 最新提交 CI：https://github.com/didi12121/factory-finance/actions（4/4 Job 预期覆盖：backend / frontend / e2e / compose-config；运行状态见 Actions 页面最新 Run）
-- 本报告随附提交推送后同样触发 CI。
+- Hotfix 提交 CI（Run #3，head `fa09726`）：https://github.com/didi12121/factory-finance/actions/runs/45926128731
+- **状态：completed / success（2026-11-27 10:05 CST 实测）**，覆盖 backend（mvn verify 含 Testcontainers）、frontend（类型检查/Vitest/生产构建）、e2e（Playwright + 截图 + 生产构建防护）、compose-config 四个 Job。
 
 ## 截图
 
@@ -72,7 +72,7 @@
 
 ## Git
 
-- Hotfix 提交：见提交信息 `Phase 0.1.1 final hotfix`（本报告随附）
+- Hotfix 提交：`fa09726ed6f676e7e22c8153330c74c38d08dafc`（Phase 0.1.1 final hotfix，13 files / +581 / -144，含本报告）
 - 工作区状态：clean；无真实密码/Secret 提交
 
 ## STOP CONDITION
