@@ -13,8 +13,8 @@ test.describe('Application Shell', () => {
     await expect(page.getByText('财务核算')).toBeVisible()
     await expect(page.getByText('基础资料')).toBeVisible()
 
-    // 占位页面明确标记尚未实现
-    await expect(page.getByText('尚未实现').first()).toBeVisible()
+    // 经营概览已接入原型页（Phase 0.2）
+    await expect(page.getByRole('heading', { name: '经营概览' })).toBeVisible()
   })
 
   test('Sidebar 折叠与展开', async ({ page }) => {
@@ -28,16 +28,23 @@ test.describe('Application Shell', () => {
     await expect(sidebar).toHaveCSS('width', '224px')
   })
 
-  test('导航行为：点击菜单跳转到对应占位页面', async ({ page }) => {
+  test('导航行为：点击菜单跳转到对应页面', async ({ page }) => {
     await page.goto('/workbench')
+    const sidebar = page.locator('[data-testid="sidebar"]')
 
-    await page.getByRole('link', { name: /应收账款/ }).click()
+    // 原型页面（Phase 0.2）
+    await sidebar.getByRole('link', { name: /应收账款/ }).click()
     await expect(page).toHaveURL(/\/business\/receivables/)
     await expect(page.getByRole('heading', { name: '应收账款' })).toBeVisible()
+
+    // 占位页面明确标记尚未实现
+    await sidebar.getByRole('link', { name: /股东往来/ }).click()
+    await expect(page).toHaveURL(/\/business\/shareholder/)
+    await expect(page.getByRole('heading', { name: '股东往来' })).toBeVisible()
     await expect(page.getByText('该功能尚未实现')).toBeVisible()
     await expect(page.getByText('Phase 2')).toBeVisible()
 
-    await page.getByRole('link', { name: /资金账户/ }).click()
+    await sidebar.getByRole('link', { name: /资金账户/ }).click()
     await expect(page).toHaveURL(/\/treasury\/accounts/)
     await expect(page.getByRole('heading', { name: '资金账户' })).toBeVisible()
   })

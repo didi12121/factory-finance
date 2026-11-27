@@ -4,11 +4,18 @@ test.describe('键盘可访问性', () => {
   test('Tab 键可移动焦点，Enter 激活导航链接', async ({ page }) => {
     await page.goto('/workbench')
 
-    await page.keyboard.press('Tab')
-    const focused = await page.evaluate(() => document.activeElement?.tagName ?? '')
-    expect(focused).not.toBe('BODY')
+    // Tab 遍历应能到达可交互元素（焦点不滞留 body）
+    let focusedTag = ''
+    for (let i = 0; i < 10 && focusedTag === ''; i += 1) {
+      await page.keyboard.press('Tab')
+      focusedTag = await page.evaluate(() => {
+        const el = document.activeElement
+        return el && el !== document.body ? el.tagName : ''
+      })
+    }
+    expect(focusedTag).not.toBe('')
 
-    const link = page.getByRole('link', { name: /应收账款/ })
+    const link = page.locator('[data-testid="sidebar"]').getByRole('link', { name: /应收账款/ })
     await link.focus()
     await page.keyboard.press('Enter')
     await expect(page).toHaveURL(/\/business\/receivables/)

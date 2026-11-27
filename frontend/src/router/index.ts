@@ -72,6 +72,7 @@ const routes: RouteRecordRaw[] = [
         beforeEnter: () => prototypeGuard() || { path: '/workbench' },
       },
       { path: 'business/expenses', ...placeholder('费用管理', 'Phase 1') },
+      { path: 'business/payables', ...placeholder('应付账款', 'Phase 2') },
       { path: 'business/payroll', ...placeholder('工资管理', 'Phase 1') },
       { path: 'business/shareholder', ...placeholder('股东往来', 'Phase 2') },
       { path: 'business/fixed-assets', ...placeholder('固定资产', 'Phase 4') },
