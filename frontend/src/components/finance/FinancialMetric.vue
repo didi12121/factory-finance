@@ -14,9 +14,9 @@ const props = defineProps<{
 </script>
 
 <template>
-  <div class="flex min-w-[180px] flex-col gap-1">
+  <div class="flex min-w-[180px] flex-col items-start gap-1">
     <p class="text-caption text-text-muted">{{ props.label }}</p>
-    <MoneyText :value="props.value" size="metric" />
+    <MoneyText :value="props.value" size="metric" align="left" />
     <p v-if="props.caption" class="text-caption text-text-secondary">{{ props.caption }}</p>
     <slot name="extra" />
   </div>

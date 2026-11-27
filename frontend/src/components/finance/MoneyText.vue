@@ -11,8 +11,10 @@ const props = withDefaults(
     size?: 'table' | 'body' | 'metric' | 'metric-lg'
     /** 为 true 时负数以 danger 色显示 */
     negativeTone?: boolean
+    /** 对齐方式：表格默认右对齐；指标区域（标签/金额统一左基线）用 left */
+    align?: 'left' | 'right'
   }>(),
-  { size: 'body', negativeTone: false },
+  { size: 'body', negativeTone: false, align: 'right' },
 )
 
 const formatted = computed(() => {
@@ -42,7 +44,12 @@ const sizeClass = computed(() => {
 <template>
   <span
     :class="
-      cn('amount', sizeClass, props.negativeTone && isNegative ? 'text-danger' : 'text-text-primary')
+      cn(
+        'amount',
+        sizeClass,
+        props.align === 'left' ? 'text-left' : '',
+        props.negativeTone && isNegative ? 'text-danger' : 'text-text-primary',
+      )
     "
   >
     {{ formatted }}

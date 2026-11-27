@@ -27,6 +27,9 @@ import { isValidAmount, normalizeAmount } from '@/utils/money'
  * - **外部重置**：父组件赋予新 `modelValue` 时同步输入框并重置 `touched`，错误提示随状态消失；
  *   若需在 `modelValue` 未变化时清除本地草稿（如非法输入残留文本），调用暴露的 `reset()`。
  * - 错误提示 DOM ID 全局唯一（`useId`），`aria-describedby` 仅在错误展示时关联。
+ * - **valid 通知契约**：`update:valid` 由统一 watch 负责——初始化立即同步一次当前
+ *   `valid`（父组件可感知初始必填空值 invalid），此后仅在 `valid` 变化时通知
+ *   （同一状态不重复 emit）；输入、`required`、`externalError` 的动态变化均自动重算并通知。
  * - 金额比较与计算必须使用 utils/decimal.ts 精确运算，禁止 Number / parseFloat。
  */
 const props = withDefaults(
@@ -105,21 +108,21 @@ const showError = computed(() => Boolean(props.externalError) || internalError.v
 
 const invalid = computed(() => showError.value)
 
-function emitState(modelValue: string): void {
+/** 同步 modelValue（合法→规范值；非法/中间态/空→''）；valid 通知由 watch 统一负责 */
+function emitModelValue(modelValue: string): void {
   lastEmitted.value = modelValue
   emit('update:modelValue', modelValue)
-  emit('update:valid', valid.value)
 }
 
 function onInput(value: string): void {
   localText.value = value
   const state = valueState.value
   if (state === 'valid') {
-    emitState(normalizeAmount(value.trim()) ?? '')
+    emitModelValue(normalizeAmount(value.trim()) ?? '')
     return
   }
   // 空值 / 中间态 / 非法：modelValue 一律清空，禁止提交旧金额
-  emitState('')
+  emitModelValue('')
 }
 
 function onBlur(): void {
@@ -128,11 +131,11 @@ function onBlur(): void {
   if (normalized !== null) {
     const display = toFixedDecimals(normalized, 2)
     localText.value = display
-    emitState(display)
+    emitModelValue(display)
     return
   }
   // 非法输入/中间态：保留原文供修正，modelValue 清空并标记无效
-  emitState('')
+  emitModelValue('')
 }
 
 /**
@@ -145,10 +148,10 @@ function validate(): boolean {
   if (normalized !== null) {
     const display = toFixedDecimals(normalized, 2)
     localText.value = display
-    emitState(display)
+    emitModelValue(display)
     return valid.value
   }
-  emitState('')
+  emitModelValue('')
   return valid.value
 }
 
@@ -162,22 +165,19 @@ watch(
     localText.value = value
     lastEmitted.value = value
     touched.value = false
-    emit('update:valid', valid.value)
   },
 )
 
-// externalError 变化时同步 valid（外部校验状态参与整体可提交判定）
-watch(
-  () => props.externalError,
-  () => emit('update:valid', valid.value),
-)
+// valid 统一通知：初始化即同步一次（父组件可感知初始必填空值 invalid），
+// 之后仅在 valid 变化时通知（同一状态不重复 emit）；
+// 输入、required、externalError 的动态变化均经此 watch 覆盖，组件内不再散落手工 emit valid。
+watch(valid, (value) => emit('update:valid', value), { immediate: true })
 
 /** 外部表单重置：清除本地草稿与 touched，回到当前 modelValue 状态 */
 function reset(): void {
   localText.value = props.modelValue
   lastEmitted.value = props.modelValue
   touched.value = false
-  emit('update:valid', valid.value)
 }
 
 defineExpose({ validate, reset })

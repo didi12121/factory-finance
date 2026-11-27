@@ -19,15 +19,20 @@ describe('路由与应用布局', () => {
     expect(wrapper.text()).toContain('资金管理')
     expect(wrapper.text()).toContain('业务管理')
 
-    // 占位页面明确标记尚未实现
-    expect(wrapper.text()).toContain('尚未实现')
+    // 经营概览已接入原型页（Phase 0.2）
+    expect(wrapper.text()).toContain('经营概览')
 
-    // 导航跳转
+    // 导航跳转到原型页面
     await router.push('/business/receivables')
     await flushPromisesLike()
     expect(router.currentRoute.value.path).toBe('/business/receivables')
     expect(wrapper.text()).toContain('应收账款')
+
+    // 未开发占位页面明确标记尚未实现
+    await router.push('/business/shareholder')
+    await flushPromisesLike()
     expect(wrapper.text()).toContain('该功能尚未实现')
+    expect(wrapper.text()).toContain('尚未实现')
   })
 
   it('未知路由回退到工作台', async () => {

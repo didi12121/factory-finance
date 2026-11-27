@@ -4,96 +4,168 @@ import { fileURLToPath } from 'node:url'
 
 import { expect, test, type Page } from '@playwright/test'
 
-const outputDir = fileURLToPath(new URL('../../artifacts/screenshots/phase-0.1.1/', import.meta.url))
+/**
+ * Phase 0.2 交付截图（真实浏览器、最终集成版本、交互生成业务状态）。
+ * 输出：artifacts/screenshots/phase-0.2/（Phase 0.1.1 历史截图不再由本套件覆盖）。
+ */
+const outputDir = fileURLToPath(new URL('../../artifacts/screenshots/phase-0.2/', import.meta.url))
 
 async function settle(page: Page): Promise<void> {
   await page.evaluate(() => document.fonts.ready)
-  await page.waitForTimeout(200)
+  await page.waitForTimeout(250)
 }
 
-test.describe('Phase 0.1.1 截图（真实浏览器）', () => {
+const shot = (name: string): string => path.join(outputDir, name)
+
+test.describe('Phase 0.2 截图（真实浏览器）', () => {
   test.beforeAll(() => {
     mkdirSync(outputDir, { recursive: true })
   })
 
-  test('生成 Application Shell 四档视口截图', async ({ page }) => {
-    const shots: Array<{ width: number; height: number; name: string }> = [
-      { width: 1920, height: 1080, name: 'shell-1920x1080.png' },
-      { width: 1440, height: 900, name: 'shell-1440x900.png' },
-      { width: 1280, height: 800, name: 'shell-1280x800.png' },
-      { width: 390, height: 844, name: 'shell-mobile-390x844.png' },
+  test('dashboard 四档视口截图', async ({ page }) => {
+    const shots = [
+      { w: 1920, h: 1080, name: 'dashboard-1920x1080.png' },
+      { w: 1440, h: 900, name: 'dashboard-1440x900.png' },
+      { w: 1280, h: 800, name: 'dashboard-1280x800.png' },
+      { w: 390, h: 844, name: 'dashboard-mobile.png' },
     ]
-
-    for (const shot of shots) {
-      await page.setViewportSize({ width: shot.width, height: shot.height })
+    for (const s of shots) {
+      await page.setViewportSize({ width: s.w, height: s.h })
       await page.goto('/workbench')
       await settle(page)
-      await expect(page.getByRole('heading', { name: '经营概览' })).toBeVisible()
-      await page.screenshot({ path: path.join(outputDir, shot.name), fullPage: true })
+      await expect(page.getByTestId('metric-fund-balance')).toBeVisible()
+      await page.screenshot({ path: shot(s.name), fullPage: true })
     }
   })
 
-  test('生成 Design System 页面截图', async ({ page }) => {
+  test('dashboard 自定义日期范围截图', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 })
-    await page.goto('/dev/design-system')
+    await page.goto('/workbench')
     await settle(page)
-    await expect(page.getByRole('heading', { name: 'Color Tokens' })).toBeVisible()
-    await page.screenshot({ path: path.join(outputDir, 'design-system.png'), fullPage: true })
+    await page.getByTestId('date-preset-custom').click()
+    await page.getByTestId('date-custom-from').fill('2026-11-01')
+    await page.getByTestId('date-custom-to').fill('2026-11-30')
+    await expect(page.getByTestId('trend-chart')).toBeVisible()
+    await settle(page)
+    await page.screenshot({ path: shot('dashboard-custom-date.png'), fullPage: true })
   })
 
-  test('生成 DataTable 截图', async ({ page }) => {
+  test('transactions 列表 / 详情 / 空数据截图', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 })
-    await page.goto('/dev/design-system')
+    await page.goto('/treasury/transactions')
     await settle(page)
-    const table = page.locator('[data-testid="data-table"]')
-    await table.scrollIntoViewIfNeeded()
-    await table.screenshot({ path: path.join(outputDir, 'data-table.png') })
-  })
+    await expect(page.getByTestId('transactions-table')).toBeVisible()
+    await page.screenshot({ path: shot('transactions-list.png'), fullPage: true })
 
-  test('生成 DataTable 空数据状态截图', async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 })
-    await page.goto('/dev/design-system')
-    await settle(page)
-    await page.getByPlaceholder('搜索单据编号或客户…').fill('不存在的单据')
-    await expect(page.getByText('暂无符合条件的单据')).toBeVisible()
-    const table = page.locator('[data-testid="data-table"]')
-    await table.scrollIntoViewIfNeeded()
-    await table.screenshot({ path: path.join(outputDir, 'data-table-empty.png') })
-  })
-
-  test('生成 FinancialMetric 截图', async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 })
-    await page.goto('/dev/design-system')
-    await settle(page)
-    const metric = page.locator('[data-testid="financial-metric"]')
-    await metric.scrollIntoViewIfNeeded()
-    await metric.screenshot({ path: path.join(outputDir, 'financial-metric.png') })
-  })
-
-  test('生成 FinancialStatus 截图', async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 })
-    await page.goto('/dev/design-system')
-    await settle(page)
-    const status = page.locator('[data-testid="financial-status"]')
-    await status.scrollIntoViewIfNeeded()
-    await status.screenshot({ path: path.join(outputDir, 'financial-status.png') })
-  })
-
-  test('生成 Dialog 打开状态截图', async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 })
-    await page.goto('/dev/design-system')
-    await settle(page)
-    await page.locator('[data-testid="dialog-open"]').click()
+    // 详情（真实操作打开）
+    await page
+      .getByTestId('transactions-table')
+      .locator('tbody tr')
+      .first()
+      .getByRole('button', { name: /详情/ })
+      .click()
     await expect(page.getByRole('dialog')).toBeVisible()
-    await page.screenshot({ path: path.join(outputDir, 'dialog.png') })
+    await settle(page)
+    await page.screenshot({ path: shot('transaction-detail.png') })
+    await page.keyboard.press('Escape')
+
+    // 空数据（真实筛选）
+    const search = page.getByPlaceholder('搜索流水编号、交易对手或备注…')
+    await search.fill('不存在的关键字')
+    await expect(page.getByTestId('data-table-empty')).toBeVisible()
+    await page.screenshot({ path: shot('transactions-empty.png'), fullPage: true })
+    await page.getByTestId('clear-filters').click()
   })
 
-  test('生成 DetailSheet 打开状态截图', async ({ page }) => {
+  test('receivables 列表 / 详情 / 创建 / 空数据 / 移动端截图', async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 })
-    await page.goto('/dev/design-system')
+    await page.goto('/business/receivables')
     await settle(page)
-    await page.locator('[data-testid="sheet-open"]').click()
-    await expect(page.getByRole('dialog')).toBeVisible()
-    await page.screenshot({ path: path.join(outputDir, 'detail-sheet.png') })
+    await expect(page.getByTestId('receivables-table')).toBeVisible()
+    await page.screenshot({ path: shot('receivables-list.png'), fullPage: true })
+
+    // 应收单详情（真实点击进入）
+    await page
+      .getByTestId('receivables-table')
+      .locator('tbody tr', { hasText: 'AR-2026-0004' })
+      .getByTestId('row-detail')
+      .click()
+    await expect(page.getByTestId('receivable-detail-page')).toBeVisible()
+    await settle(page)
+    await page.screenshot({ path: shot('receivable-detail.png'), fullPage: true })
+    await page.getByTestId('back-to-list').click()
+
+    // 创建应收单（真实表单填写状态）
+    await page.getByTestId('create-receivable-open').click()
+    await page.getByLabel('客户', { exact: true }).click()
+    await page.getByRole('option', { name: /示例客户 A/ }).click()
+    await page.getByLabel('所属月份', { exact: true }).fill('2026-12')
+    await page.getByLabel('对账日期').fill('2026-12-05')
+    await page.locator('#create-amount').fill('10,000.00')
+    await settle(page)
+    await page.screenshot({ path: shot('create-receivable.png'), fullPage: true })
+    await page.keyboard.press('Escape')
+
+    // 空数据（真实筛选）
+    await page.getByPlaceholder('搜索单据编号或客户…').fill('不存在的关键字')
+    await expect(page.getByTestId('receivables-table').locator('tbody tr')).toHaveCount(1)
+    await page.screenshot({ path: shot('receivables-empty.png'), fullPage: true })
+    await page.getByTestId('filter-clear').click()
+
+    // 移动端
+    await page.setViewportSize({ width: 390, height: 844 })
+    await settle(page)
+    await page.screenshot({ path: shot('receivables-mobile.png'), fullPage: true })
+  })
+
+  test('receipts 列表 / 核销交互四态截图', async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await page.goto('/business/processing-fee')
+    await settle(page)
+    await expect(page.getByTestId('receipt-list-table')).toBeVisible()
+    await page.screenshot({ path: shot('receipt-list.png'), fullPage: true })
+
+    // 核销分配（登记 + 自动分配）
+    await page.getByTestId('open-registration').click()
+    await page.getByTestId('registration-customer').click()
+    await page.getByRole('option', { name: /示例客户 A/ }).click()
+    await page.getByLabel(/实际收款金额/).fill('15000.00')
+    await page.getByTestId('auto-allocate').click()
+    await expect(page.getByTestId('summary-unallocated')).toHaveText('0.00')
+    await settle(page)
+    await page.screenshot({ path: shot('receipt-allocation.png'), fullPage: true })
+
+    // 校验错误态（真实超额分配）
+    await page.getByLabel(/实际收款金额/).fill('1000.00')
+    await page.locator('#allocation-input-ar-001').fill('8000.00')
+    await expect(page.getByTestId('allocation-errors')).toContainText('核销总额超过实际收款金额')
+    await expect(page.getByTestId('confirm-receipt')).toBeDisabled()
+    await settle(page)
+    await page.screenshot({ path: shot('receipt-allocation-error.png'), fullPage: true })
+
+    // 成功态（真实确认：表单确认 → 弹窗二次确认）
+    await page.getByLabel(/实际收款金额/).fill('15000.00')
+    await page.getByTestId('clear-allocations').click()
+    await page.getByTestId('auto-allocate').click()
+    await expect(page.getByTestId('summary-unallocated')).toHaveText('0.00')
+    await page.getByTestId('confirm-receipt').click()
+    await page.getByRole('dialog').getByRole('button', { name: '确认收款' }).click()
+    await expect(page.getByTestId('receipt-result')).toBeVisible()
+    await settle(page)
+    await page.screenshot({ path: shot('receipt-allocation-success.png'), fullPage: true })
+  })
+
+  test('receipt 核销移动端截图', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto('/business/processing-fee')
+    await settle(page)
+    await page.getByTestId('open-registration').click()
+    await page.getByTestId('registration-customer').click()
+    await page.getByRole('option', { name: /示例客户 A/ }).click()
+    await page.getByLabel(/实际收款金额/).fill('15000.00')
+    await page.getByTestId('auto-allocate').click()
+    await expect(page.getByTestId('allocation-cards')).toBeVisible()
+    await settle(page)
+    await page.screenshot({ path: shot('receipt-allocation-mobile.png'), fullPage: true })
   })
 })
