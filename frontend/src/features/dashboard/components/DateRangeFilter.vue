@@ -6,6 +6,7 @@
  */
 import { computed } from 'vue'
 
+import { DateRangeInput } from '@/components/ui/date'
 import type { DashboardFilter, DashboardPeriodPreset } from '../period'
 import { PRESET_LABELS, resolvePeriod } from '../period'
 
@@ -52,26 +53,19 @@ function updateCustom(field: 'customFrom' | 'customTo', value: string): void {
     </div>
 
     <div v-if="isCustom" class="flex items-center gap-2">
-      <label class="flex items-center gap-1.5 text-caption text-text-muted">
-        从
-        <input
-          type="date"
-          class="h-control rounded-control border border-border bg-surface px-2 text-table text-text-primary"
-          :value="props.modelValue.customFrom"
-          data-testid="date-custom-from"
-          @input="updateCustom('customFrom', ($event.target as HTMLInputElement).value)"
-        />
-      </label>
-      <label class="flex items-center gap-1.5 text-caption text-text-muted">
-        至
-        <input
-          type="date"
-          class="h-control rounded-control border border-border bg-surface px-2 text-table text-text-primary"
-          :value="props.modelValue.customTo"
-          data-testid="date-custom-to"
-          @input="updateCustom('customTo', ($event.target as HTMLInputElement).value)"
-        />
-      </label>
+      <span class="text-caption text-text-muted">从</span>
+      <!-- 统一日期范围组件（区间文本在右侧持续回显，此处不重复格式提示） -->
+      <DateRangeInput
+        :from="props.modelValue.customFrom"
+        :to="props.modelValue.customTo"
+        from-test-id="date-custom-from"
+        to-test-id="date-custom-to"
+        from-aria-label="自定义开始日期"
+        to-aria-label="自定义结束日期"
+        :hint="false"
+        @update:from="updateCustom('customFrom', $event)"
+        @update:to="updateCustom('customTo', $event)"
+      />
     </div>
 
     <span class="text-caption text-text-muted tabular" data-testid="date-range-value">

@@ -87,8 +87,9 @@ describe('ReceivableDetailView — 详情数据（store 派生，单一数据源
     expect(allocationText).toContain('alloc-003')
     expect(allocationText).toContain('8,000.00')
     expect(allocationText).toContain('4,000.00')
-    expect(allocationText).toContain('2026-11-05T10:05:00')
-    expect(allocationText).toContain('2026-11-18T10:05:00')
+    // 操作时间展示统一 YYYY-MM-DD HH:mm（不向用户暴露 ISO 分隔符）
+    expect(allocationText).toContain('2026-11-05 10:05')
+    expect(allocationText).toContain('2026-11-18 10:05')
 
     const text = bodyText()
     expect(text).toContain('操作历史')

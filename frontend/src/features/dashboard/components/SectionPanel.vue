@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
- * 通用区块面板：标题 + 可选操作 + 内容。
- * 克制的企业级面板（细边框、留白、无大面积阴影），用于经营概览各区块。
+ * 通用区块面板：标题 + 可选操作 + 内容 + 可选底部入口。
+ * 克制的企业级面板（细边框、留白、无大面积阴影），用于经营概览各区块；
+ * 底部 slot（如「查看全部 →」）以 mt-auto 贴底，双列高度不一致时不产生悬挂空白。
  */
 const props = withDefaults(
   defineProps<{
@@ -15,7 +16,7 @@ const props = withDefaults(
 </script>
 
 <template>
-  <section class="rounded-panel border border-border bg-surface">
+  <section class="flex flex-col rounded-panel border border-border bg-surface">
     <header class="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
       <div class="min-w-0">
         <h2 class="text-section-title font-semibold text-text-primary">{{ props.title }}</h2>
@@ -27,8 +28,11 @@ const props = withDefaults(
         <slot name="actions" />
       </div>
     </header>
-    <div :class="props.flush ? '' : 'p-5'">
+    <div :class="props.flush ? 'flex-1' : 'flex-1 p-5'">
       <slot />
+    </div>
+    <div v-if="$slots.footer" class="mt-auto border-t border-border px-5 py-3">
+      <slot name="footer" />
     </div>
   </section>
 </template>

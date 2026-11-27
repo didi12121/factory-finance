@@ -50,7 +50,7 @@ function sortValues(values: string[], direction: 'asc' | 'desc' = 'asc'): string
 }
 
 describe('金额列排序使用 compareAmounts（精确比较）', () => {
-  it('收入/支出金额列的 sortingFn 就是 amountSortingFn（compareAmounts 定点比较）', () => {
+  it('流入/流出金额列的 sortingFn 就是 amountSortingFn（compareAmounts 定点比较）', () => {
     expect(columnOf('incomeAmount').sortingFn).toBe(amountSortingFn)
     expect(columnOf('outcomeAmount').sortingFn).toBe(amountSortingFn)
   })

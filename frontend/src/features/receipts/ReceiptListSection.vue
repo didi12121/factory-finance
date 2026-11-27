@@ -13,7 +13,7 @@ import Button from '@/components/ui/button/Button.vue'
 import Select from '@/components/ui/select/Select.vue'
 import { amountSortingFn } from '@/components/shared/tableSorting'
 import DataTable from '@/components/shared/DataTable.vue'
-import DateField from './DateField.vue'
+import { DateRangeInput } from '@/components/ui/date'
 import DocumentNumber from '@/components/finance/DocumentNumber.vue'
 import ErrorState from '@/components/shared/ErrorState.vue'
 import FilterBar from '@/components/shared/FilterBar.vue'
@@ -240,18 +240,15 @@ const columns: ColumnDef<ReceiptRowView, string>[] = [
         >
           收款日期
         </label>
-        <DateField
-          id="receipt-date-from"
-          v-model="dateFrom"
-          class="w-[150px] shrink-0"
-          data-testid="filter-date-from"
-        />
-        <span class="shrink-0 whitespace-nowrap text-caption text-text-muted">至</span>
-        <DateField
-          id="receipt-date-to"
-          v-model="dateTo"
-          class="w-[150px] shrink-0"
-          data-testid="filter-date-to"
+        <DateRangeInput
+          :from="dateFrom"
+          :to="dateTo"
+          from-id="receipt-date-from"
+          to-id="receipt-date-to"
+          from-test-id="filter-date-from"
+          to-test-id="filter-date-to"
+          @update:from="dateFrom = $event"
+          @update:to="dateTo = $event"
         />
       </div>
       <Button variant="secondary" size="sm" data-testid="reset-filters" @click="resetFilters">

@@ -288,7 +288,7 @@ describe('交易详情模型（全部字段 + 备注 + 关联流水 + 收款单�
     expect(rowValue('sourceDocId')).toBe('tg-001')
     expect(rowValue('transferGroupId')).toBe('tg-001')
     expect(rowValue('status')).toBe('已入账')
-    expect(rowValue('createdAt')).toBe('2026-11-20T11:00:00')
+    expect(rowValue('createdAt')).toBe('2026-11-20 11:00') // 操作时间展示 YYYY-MM-DD HH:mm（不暴露 ISO 分隔符）
     expect(rowValue('remark')).toBe('内部转账演示（成对流水）')
 
     expect(model.transferPartners.map((item) => item.id)).toEqual(['txn-018'])
