@@ -16,5 +16,5 @@ public interface ShareholderMapper extends BaseMapper<Shareholder> {
      * 下一编号 = max + 1，格式 SH-%04d。
      */
     @Select("SELECT MAX(CAST(SUBSTRING(shareholder_no, 4) AS UNSIGNED)) FROM mst_shareholder WHERE shareholder_no LIKE 'SH-%'")
-    Integer selectMaxSequence();
+    Long selectMaxSequence();
 }

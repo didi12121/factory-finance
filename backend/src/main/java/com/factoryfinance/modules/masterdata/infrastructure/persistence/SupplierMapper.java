@@ -13,5 +13,5 @@ public interface SupplierMapper extends BaseMapper<Supplier> {
 
     /** 当前供应商编号最大序号（SUP- 后数字部分）；无数据返回 NULL */
     @Select("SELECT MAX(CAST(SUBSTRING(supplier_no, 5) AS UNSIGNED)) FROM mst_supplier WHERE supplier_no LIKE 'SUP-%'")
-    Integer selectMaxSequence();
+    Long selectMaxSequence();
 }

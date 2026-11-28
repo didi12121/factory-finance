@@ -116,8 +116,8 @@ public class ShareholderService {
     }
 
     private String nextShareholderNo() {
-        Integer max = shareholderMapper.selectMaxSequence();
-        int next = (max == null ? 0 : max) + 1;
+        Long max = shareholderMapper.selectMaxSequence();
+        long next = (max == null ? 0L : max) + 1;
         return String.format("%s%04d", MasterdataConstants.SHAREHOLDER_NO_PREFIX, next);
     }
 

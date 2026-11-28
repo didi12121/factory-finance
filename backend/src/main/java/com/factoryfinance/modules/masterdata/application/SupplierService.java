@@ -147,8 +147,8 @@ public class SupplierService implements SupplierDirectoryApi {
     }
 
     private String nextSupplierNo() {
-        Integer max = supplierMapper.selectMaxSequence();
-        int next = (max == null ? 0 : max) + 1;
+        Long max = supplierMapper.selectMaxSequence();
+        long next = (max == null ? 0L : max) + 1;
         return String.format("%s%04d", MasterdataConstants.SUPPLIER_NO_PREFIX, next);
     }
 

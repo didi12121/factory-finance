@@ -121,8 +121,8 @@ public class CustomerService implements CustomerDirectoryApi {
     }
 
     private String nextCustomerNo() {
-        Integer max = customerMapper.selectMaxSequence();
-        int next = (max == null ? 0 : max) + 1;
+        Long max = customerMapper.selectMaxSequence();
+        long next = (max == null ? 0L : max) + 1;
         return String.format("%s%04d", MasterdataConstants.CUSTOMER_NO_PREFIX, next);
     }
 

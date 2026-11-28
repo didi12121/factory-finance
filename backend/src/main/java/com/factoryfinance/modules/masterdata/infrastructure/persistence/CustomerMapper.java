@@ -16,5 +16,5 @@ public interface CustomerMapper extends BaseMapper<Customer> {
      * 下一编号 = max + 1，格式 CUS-%04d。
      */
     @Select("SELECT MAX(CAST(SUBSTRING(customer_no, 5) AS UNSIGNED)) FROM mst_customer WHERE customer_no LIKE 'CUS-%'")
-    Integer selectMaxSequence();
+    Long selectMaxSequence();
 }
