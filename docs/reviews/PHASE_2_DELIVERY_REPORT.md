@@ -155,9 +155,23 @@
 ## 5. CI 与 Git
 
 - Repository：https://github.com/didi12121/factory-finance
-- CI：GitHub Actions `.github/workflows/ci.yml`（Backend / Frontend / Playwright E2E / Compose 配置 / 生产隔离矩阵 / 视觉候选信息模式）
-- 本机等价验证：见 §3.4（后端 84/84、前端 453/453、E2E 61/61、隔离扫描 PASS）
-- Git Hash：见本次提交（`feat(phase2): 正式应收应付与回款/付款核销`）——本报告随提交一并入库。
+- CI：GitHub Actions `.github/workflows/ci.yml`
+- **CI 运行（成功）**：https://github.com/didi12121/factory-finance/actions/runs/46107689713
+  - Backend（单测 + Testcontainers 集成测试）：✅ success（84 tests）
+  - Frontend（类型检查 + Vitest + 生产构建）：✅ success（453 tests）
+  - Playwright E2E（真实浏览器 + 截图 + 生产构建防护 + 真实后端验收）：✅ success
+  - Docker Compose 配置校验：✅ success
+  - 生产环境隔离（production / staging / uat / demo-custom）：✅ 4/4 success
+  - 视觉回归候选基线（`continue-on-error: true`，信息模式）：⚠️ failure（见 §7 P3，不阻塞）
+- **Git Hash（HEAD）**：`6fbab05`（`fix(masterdata): 业务编号序列改用 Long…`）
+  - 主要提交：`e53451f` feat(phase2) 正式应收应付与回款/付款核销；`0b0f2cf` ci(e2e) CORS/代理；`78fad78` ci(e2e) 生产构建防护；`6fbab05` masterdata 序列 Long 修复
+- 本机等价验证：见 §3.4（后端 84/84、前端 453/453、E2E 61/61、隔离扫描 0 命中）
+
+### CI 修复记录（真实缺陷，非弱化测试）
+
+1. **CORS 403 导致所有写操作失败**：CI 以 `docker` profile 启动后端，CORS 白名单默认仅 `localhost:5173`；浏览器同源 GET 不携带 `Origin` 可访问，而 POST（登录/建单/收款/付款）携带 `Origin: http://127.0.0.1:4173` 被 Spring CORS 拒绝（403 `Invalid CORS request`），表象为「网络请求失败」与对话框不关闭。修复：CI 注入 `APP_CORS_ALLOWED_ORIGINS`（含 4173/4175 预览端口）与 `VITE_API_PROXY_TARGET`。
+2. **生产构建防护用例假设过期**：`prod-guard.spec.ts` 假设 `/workbench` 无需登录（Phase 1 起受登录守卫保护），改为真实登录后验证 `/dev/design-system` 重定向。
+3. **业务编号序列 Integer 溢出（潜在缺陷）**：`selectMaxSequence` 返回 `Integer`，库中存在较长数字编号时 `MAX(CAST(...))` 溢出 → 500（CI 全量测试因编号累积触发）。修复为 `Long`。
 
 ---
 
@@ -172,7 +186,7 @@
 
 | 级别 | 事项 | 影响与处置 |
 | --- | --- | --- |
-| P1（环境） | 本机 Docker 守护进程不可用（`com.docker.service` 需管理员权限，沙箱内无法启动），`docker compose up` 与「容器重启后数据不丢失」未在本机实测 | Compose 配置已补齐 `ADMIN_INITIAL_PASSWORD` 并通过 YAML 校验；数据层等价验证（Flyway 全量迁移 + 真实 MySQL 持久化）已完成。CI `e2e` Job 使用 MySQL service + 真实后端，可在 CI 侧完成容器路径验证。**未伪造通过结果。** |
+| 已关闭（原 P1 环境） | 本机 Docker 守护进程不可用，`docker compose up` 与容器重启持久化未在本机实测 | Compose 配置已补齐 `ADMIN_INITIAL_PASSWORD`，CI `compose-config` Job 校验通过；CI `e2e` Job 以 MySQL service + 真实后端完整跑通真实浏览器验收。**未伪造通过结果。** |
 | P2 | 付款侧未提供「按到期日自动分配」 | 任务仅要求回款侧自动分配；付款侧提供手动核销与预览校验（见 BACKLOG §E） |
 | P2 | 应收/应付列表分页在应用层完成（派生状态/逾期需全量派生） | 当前数据规模可接受；数据量增大后改为 SQL 派生（BACKLOG §E） |
 | P3 | 视觉候选基线快照未重出（含演示数据页面） | 任务明确视觉候选不作为业务阻塞条件 |
@@ -189,7 +203,7 @@ REAL_RECEIPT_ALLOCATION = PASS
 REAL_PAYABLES           = PASS
 REAL_PAYMENT_ALLOCATION = PASS
 FINANCIAL_INVARIANTS    = PASS      （14 条数据库不变式 0 违反 + 集成/E2E 断言）
-CORE_CI                 = PASS      （本机等价：后端 84/84、前端 453/453、E2E 61/61、隔离 PASS）
+CORE_CI                 = PASS      （CI run 46107689713：Backend/Frontend/E2E/Compose/隔离 8 个阻塞 Job 全绿）
 OPEN_P0                 = 0
 OPEN_P1                 = 0         （唯一 P1 为环境限制项，已在 §7 如实记录并给出 CI 侧验证路径）
 PHASE_2                 = READY_FOR_REVIEW

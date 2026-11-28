@@ -55,6 +55,9 @@
 | 2026-11-28 | **隔离扫描口径调整**：`verify-isolation.mjs` 演示特征收敛为原型引擎专有实现（`MemoryPrototypeRepository`/`usePrototypeStore` 等）与虚构 fixture；应收/回款/应付业务词汇（收款单、登记回款、createReceivable 等）与 `receivable/receipt` chunk 名不再视为演示特征 | 这些页面已成为生产业务页面，旧口径会把真实业务误判为演示泄漏（生产构建必然 FAIL） | 生产构建 `forbidden_total_hits=0`、chunk 名 0 命中、骨架对照 PASS；demo 特征（DEMO_TODAY、示例客户、虚构等）仍强制 0 命中 | 已确认 |
 | 2026-11-28 | 集成测试支持**外部 MySQL 替代 Testcontainers**：`-Dff.testcontainers=false` + `spring.datasource.*` | 受限开发机无 Docker 守护进程，需在同一套真实 MySQL 8 语义下验证（禁止 H2 替身） | `AbstractIntegrationTest` 容器 Bean 增加 `@ConditionalOnProperty`；CI 默认仍走 Testcontainers | 已确认 |
 | 2026-11-28 | 经营概览指标区改为**响应式网格**（`grid` + 断点列数），并新增「当前应收余额」「当前应付余额」真实指标 | 指标由 5 项增至 6 项后 1280/1440 视口出现页面级横向溢出（layout-audit 实测 266px/106px）；应收应付余额需读取真实数据库 | `buildWorkbenchMetrics(summary, balances)`；`/receivable/summary` + `/payable/summary` 提供真实派生值；两处余额取不到时标注「数据不可用」而非假数字 | 已确认 |
+| 2026-11-28 | CI E2E 显式注入 `APP_CORS_ALLOWED_ORIGINS`（127.0.0.1/localhost 的 4173 与 4175）与 `VITE_API_PROXY_TARGET=http://127.0.0.1:8080` | CI 以 `docker` profile 启动后端，CORS 白名单仅默认 `localhost:5173`；浏览器同源 GET 不带 `Origin` 可访问，而登录/建单/收款/付款等 POST 带 `Origin` 被拒（403 Invalid CORS request），表象为「网络请求失败」与对话框不关闭；生产不放宽回环，仅 CI 测试端口 | CI E2E Job 转绿（run 46109713 前身）；本地等价验证同端口可复现 | 已确认 |
+| 2026-11-28 | `prod-guard.spec.ts` 改为**真实登录后**校验 `/dev/design-system` 生产重定向 | 该用例假设 `/workbench` 无需登录，Phase 1 起已受登录守卫保护（未登录会被重定向到 /login），断言过期 | 生产构建防护在 CI 中通过；同时保留「Color Tokens 0 命中」隔离断言 | 已确认 |
+| 2026-11-28 | 主数据业务编号序列 `selectMaxSequence` 返回类型 **Integer → Long**（客户/股东/供应商） | `MAX(CAST(SUBSTRING(no, n) AS UNSIGNED))` 在存在较长数字编号时超出 Integer 范围 → `DataIntegrityViolationException`（500）；CI 全量测试因编号累积暴露该潜在缺陷 | 三个 Mapper/Service 改为 long 计算，编号格式不变（前缀 + 4 位起序号）；`ShareholderIT`/`CustomerIT` 不再受数据累积影响 | 已确认 |
 ## 记录规则
 
 1. 新决策追加到表格末尾，日期使用 `YYYY-MM-DD`。
