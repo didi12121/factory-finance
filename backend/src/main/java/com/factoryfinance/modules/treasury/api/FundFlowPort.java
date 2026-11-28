@@ -41,6 +41,12 @@ public interface FundFlowPort {
      */
     Optional<PurchasePaymentInfo> findConfirmedPurchaseExpense(long expenseId);
 
+    /**
+     * 已确认且实际支付的采购支出列表（按业务日期倒序，最多 500 条），
+     * 供应付模块提供「关联已有采购支出」选择项。
+     */
+    java.util.List<PurchasePaymentInfo> listConfirmedPurchaseExpenses();
+
     /** 资金账户引用（展示名 + 期初日期） */
     record AccountRef(long id, String name, LocalDate openingDate) {
     }

@@ -1,5 +1,6 @@
 package com.factoryfinance.modules.treasury.application;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.factoryfinance.common.exception.BusinessException;
 import com.factoryfinance.modules.treasury.api.FundFlowPort;
 import com.factoryfinance.modules.treasury.api.dto.VoidView;
@@ -118,6 +119,20 @@ public class TreasuryFundFlowPort implements FundFlowPort {
         }
         return Optional.of(new PurchasePaymentInfo(expense.getId(), expense.getDocNo(),
                 expense.getAmount(), expense.getPayDate()));
+    }
+
+    @Override
+    public java.util.List<PurchasePaymentInfo> listConfirmedPurchaseExpenses() {
+        return expenseMapper.selectList(new QueryWrapper<Expense>()
+                        .eq("category", ExpenseCategory.PURCHASE.code())
+                        .eq("status", DocStatus.CONFIRMED.code())
+                        .orderByDesc("pay_date")
+                        .orderByDesc("id")
+                        .last("LIMIT 500"))
+                .stream()
+                .map(expense -> new PurchasePaymentInfo(expense.getId(), expense.getDocNo(),
+                        expense.getAmount(), expense.getPayDate()))
+                .toList();
     }
 
     /** 供业务模块复用：资金流出方向常量 */

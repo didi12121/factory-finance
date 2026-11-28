@@ -3,6 +3,7 @@ package com.factoryfinance.modules.payable.api;
 import com.factoryfinance.common.api.ApiResponse;
 import com.factoryfinance.common.api.PageResult;
 import com.factoryfinance.modules.payable.api.dto.CreatePayableRequest;
+import com.factoryfinance.modules.payable.api.dto.FundableExpenseView;
 import com.factoryfinance.modules.payable.api.dto.PayableView;
 import com.factoryfinance.modules.payable.application.PayableService;
 import com.factoryfinance.modules.treasury.api.dto.VoidRequest;
@@ -48,6 +49,13 @@ public class PayablesController {
             @RequestParam(required = false) String paymentStatus) {
         return ApiResponse.success(payableService.list(page, size, keyword, dateFrom, dateTo,
                 supplierId, accountingMonth, paymentStatus));
+    }
+
+    @GetMapping("/fundable-expenses")
+    @Operation(summary = "可关联的已支付采购支出",
+            description = "仅返回已确认支付且尚未被有效应付单引用的采购支出（同一支出最多关联一张有效应付单）")
+    public ApiResponse<java.util.List<FundableExpenseView>> fundableExpenses() {
+        return ApiResponse.success(payableService.listFundableExpenses());
     }
 
     @GetMapping("/{id}")

@@ -19,4 +19,7 @@ public interface SupplierDirectoryApi {
 
     /** 批量 id → 供应商名称（列表展示） */
     Map<Long, String> supplierNames(Collection<Long> supplierIds);
+
+    /** 按名称查询供应商（同名多条返回空，要求人工确认；含停用） */
+    Optional<SupplierInfo> findSupplierByName(String name);
 }

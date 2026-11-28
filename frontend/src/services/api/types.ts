@@ -572,6 +572,14 @@ export interface PayableRecord {
   createdBy: string | null
 }
 
+/** 可关联的已支付采购支出（同一支出最多关联一张有效应付单） */
+export interface FundableExpense {
+  expenseId: EntityId
+  docNo: string
+  amount: DecimalString
+  payDate: LocalDate
+}
+
 /** 应付单新建载荷 */
 export interface PayableCreateInput {
   supplierId: number

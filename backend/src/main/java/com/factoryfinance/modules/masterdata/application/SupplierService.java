@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -114,6 +115,21 @@ public class SupplierService implements SupplierDirectoryApi {
         }
         return Optional.of(new SupplierInfo(supplier.getId(), supplier.getSupplierNo(), supplier.getName(),
                 MasterdataConstants.STATUS_ENABLED.equals(supplier.getStatus())));
+    }
+
+    @Override
+    public Optional<SupplierInfo> findSupplierByName(String name) {
+        if (name == null || name.isBlank()) {
+            return Optional.empty();
+        }
+        List<Supplier> matches = supplierMapper.selectList(new QueryWrapper<Supplier>()
+                .eq("name", name.trim())
+                .last("LIMIT 2"));
+        return matches.size() == 1
+                ? Optional.of(new SupplierInfo(matches.get(0).getId(), matches.get(0).getSupplierNo(),
+                        matches.get(0).getName(),
+                        MasterdataConstants.STATUS_ENABLED.equals(matches.get(0).getStatus())))
+                : Optional.empty();
     }
 
     @Override

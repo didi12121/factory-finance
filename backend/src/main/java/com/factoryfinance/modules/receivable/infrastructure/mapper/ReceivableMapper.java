@@ -34,7 +34,8 @@ public interface ReceivableMapper extends BaseMapper<Receivable> {
 
     /** 已确认应收单 + 有效核销合计（应收/逾期余额统计，全部读取真实数据库） */
     @Select("""
-            SELECT r.id AS id, r.original_amount AS originalAmount, r.due_date AS dueDate,
+            SELECT r.id AS id, r.customer_id AS customerId, r.original_amount AS originalAmount,
+                   r.due_date AS dueDate,
                    COALESCE((SELECT SUM(a.allocation_amount) FROM rcv_receipt_allocation a
                              WHERE a.receivable_id = r.id AND a.status = 'ACTIVE'), 0) AS allocated
             FROM rcv_receivable r
@@ -43,7 +44,7 @@ public interface ReceivableMapper extends BaseMapper<Receivable> {
     java.util.List<OutstandingRow> selectOutstandingRows();
 
     /** 应收余额统计行 */
-    record OutstandingRow(Long id, BigDecimal originalAmount, java.time.LocalDate dueDate,
-                          BigDecimal allocated) {
+    record OutstandingRow(Long id, Long customerId, BigDecimal originalAmount,
+                          java.time.LocalDate dueDate, BigDecimal allocated) {
     }
 }

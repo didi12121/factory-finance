@@ -8,7 +8,7 @@
  * - 本阶段全额核销：付款金额 = Σ 核销金额；不支持未分配付款与预付款；
  * - 已由 Phase 1 采购支出直接支付的应付单（fundedExpenseId 非空）禁止再次付款。
  */
-import { computed, h, onMounted, ref } from 'vue'
+import { computed, h, onMounted, ref, watch } from 'vue'
 
 import type { ColumnDef } from '@tanstack/vue-table'
 
@@ -34,6 +34,7 @@ import {
   masterdataApi,
   payableApi,
   type FundAccount,
+  type FundableExpense,
   type PayablePaymentStatus,
   type PayableRecord,
   type PaymentRecord,
@@ -324,11 +325,31 @@ const paymentColumns: ColumnDef<PaymentRecord, string>[] = [
 
 const createOpen = ref(false)
 const createForm = ref<Record<string, string>>({})
+const fundableExpenses = ref<FundableExpense[]>([])
 const createErrors = ref<Record<string, string>>({})
 const creating = ref(false)
 const createKey = ref(newIdempotencyKey('ap'))
 
+const selectedExpense = computed(() => {
+  const id = createForm.value.fundedExpenseId ?? ''
+  return id === '' ? null : (fundableExpenses.value.find((item) => item.expenseId === id) ?? null)
+})
+
 const createFields = computed<FormFieldSchema[]>(() => [
+  {
+    key: 'fundedExpenseId',
+    label: '关联已支付采购支出',
+    type: 'select',
+    placeholder: '选填：关联 Phase 1 已直接支付的采购支出',
+    hint: '同一采购支出最多关联一张有效应付单；关联后金额固定等于支出金额，且禁止再次付款',
+    options: [
+      { label: '不关联', value: '' },
+      ...fundableExpenses.value.map((item) => ({
+        label: `${item.docNo} · ${item.payDate} · ${item.amount}`,
+        value: item.expenseId,
+      })),
+    ],
+  },
   {
     key: 'supplierId',
     label: '供应商',
@@ -341,17 +362,60 @@ const createFields = computed<FormFieldSchema[]>(() => [
   },
   { key: 'bizDate', label: '业务日期', type: 'date', required: true, hint: '不得晚于当前业务日期' },
   { key: 'dueDate', label: '到期日期', type: 'date', hint: '选填；不得早于业务日期' },
-  { key: 'amount', label: '应付金额', type: 'amount', required: true },
-  { key: 'content', label: '业务内容', type: 'text', required: true, placeholder: '如：11月原料采购' },
+  {
+    key: 'amount',
+    label: '应付金额',
+    type: 'amount',
+    required: true,
+    disabled: selectedExpense.value !== null,
+    hint: selectedExpense.value === null ? undefined : '已关联采购支出，金额固定等于支出金额',
+  },
+  {
+    key: 'content',
+    label: '业务内容',
+    type: 'text',
+    required: true,
+    placeholder: '如：11月原料采购',
+    disabled: selectedExpense.value !== null,
+  },
   { key: 'remark', label: '备注', type: 'text', placeholder: '选填' },
 ])
 
-function openCreate(): void {
-  createForm.value = { supplierId: '', bizDate: today, dueDate: '', amount: '', content: '', remark: '' }
+async function openCreate(): Promise<void> {
+  createForm.value = {
+    fundedExpenseId: '',
+    supplierId: '',
+    bizDate: today,
+    dueDate: '',
+    amount: '',
+    content: '',
+    remark: '',
+  }
   createErrors.value = {}
   createKey.value = newIdempotencyKey('ap')
   createOpen.value = true
+  try {
+    fundableExpenses.value = await payableApi.listFundableExpenses()
+  } catch {
+    // 候选加载失败不阻断手工建单（不关联采购支出）
+    fundableExpenses.value = []
+  }
 }
+
+/** 选择已支付采购支出后自动填充金额与内容（金额必须等于支出金额） */
+watch(
+  () => createForm.value.fundedExpenseId,
+  (expenseId) => {
+    const expense = expenseId === undefined || expenseId === '' ? null : fundableExpenses.value.find((item) => item.expenseId === expenseId)
+    if (expense === null || expense === undefined) {
+      return
+    }
+    createForm.value.amount = expense.amount
+    if ((createForm.value.content ?? '').trim() === '') {
+      createForm.value.content = `采购支出 ${expense.docNo}`
+    }
+  },
+)
 
 async function submitCreate(): Promise<void> {
   const errors: Record<string, string> = {}
@@ -373,7 +437,9 @@ async function submitCreate(): Promise<void> {
   }
   creating.value = true
   try {
+    const expenseId = (createForm.value.fundedExpenseId ?? '').trim()
     await payableApi.createPayable({
+      fundedExpenseId: expenseId === '' ? null : Number(expenseId),
       supplierId: Number(createForm.value.supplierId),
       bizDate: createForm.value.bizDate,
       dueDate: (createForm.value.dueDate ?? '') === '' ? null : createForm.value.dueDate,

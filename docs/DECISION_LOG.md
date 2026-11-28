@@ -58,6 +58,12 @@
 | 2026-11-28 | CI E2E 显式注入 `APP_CORS_ALLOWED_ORIGINS`（127.0.0.1/localhost 的 4173 与 4175）与 `VITE_API_PROXY_TARGET=http://127.0.0.1:8080` | CI 以 `docker` profile 启动后端，CORS 白名单仅默认 `localhost:5173`；浏览器同源 GET 不带 `Origin` 可访问，而登录/建单/收款/付款等 POST 带 `Origin` 被拒（403 Invalid CORS request），表象为「网络请求失败」与对话框不关闭；生产不放宽回环，仅 CI 测试端口 | CI E2E Job 转绿（run 46109713 前身）；本地等价验证同端口可复现 | 已确认 |
 | 2026-11-28 | `prod-guard.spec.ts` 改为**真实登录后**校验 `/dev/design-system` 生产重定向 | 该用例假设 `/workbench` 无需登录，Phase 1 起已受登录守卫保护（未登录会被重定向到 /login），断言过期 | 生产构建防护在 CI 中通过；同时保留「Color Tokens 0 命中」隔离断言 | 已确认 |
 | 2026-11-28 | 主数据业务编号序列 `selectMaxSequence` 返回类型 **Integer → Long**（客户/股东/供应商） | `MAX(CAST(SUBSTRING(no, n) AS UNSIGNED))` 在存在较长数字编号时超出 Integer 范围 → `DataIntegrityViolationException`（500）；CI 全量测试因编号累积暴露该潜在缺陷 | 三个 Mapper/Service 改为 long 计算，编号格式不变（前缀 + 4 位起序号）；`ShareholderIT`/`CustomerIT` 不再受数据累积影响 | 已确认 |
+| 2026-11-28 | 采购支出 ↔ 应付单关联完整性：`pay_payable` 新增 STORED 生成列 `funded_expense_key`（仅 status='CONFIRMED' 时有值）+ 唯一索引 | MySQL 无部分索引；「同一笔采购支出最多关联一张**有效**应付单」需要「撤销后自动解除」的语义，生成列 + 唯一键可同时满足数据库级约束与业务语义 | 并发重复关联只有一笔成功；撤销应付单自动解除关联（可重新关联）；历史行保留 `funded_expense_id` 可追溯 | 已确认 |
+| 2026-11-28 | 资金单据撤销前置校验采用 **SPI 反向依赖**（`treasury.api.FundDocumentVoidGuard`，应付模块注册实现） | 需表达「采购支出已被有效应付单引用则禁止撤销」的跨模块约束，同时避免 treasury 反向依赖 payable 模块 | `VoidService` 收集全部 guard Bean 并在撤销出资/支出/转账前校验；返回 409 且提示需先撤销对应应付单 | 已确认 |
+| 2026-11-28 | 新增 **`importer` 模块**（导入批次 + 行明细 + 模板/预览/导入接口），并引入 **Apache POI 5.2.3**（`poi-ooxml`） | Excel 解析/生成需 OOXML 库；导入属于独立能力域，与 12 个业务模块解耦；POI 5.x 为 jakarta 兼容线且本地/CI 均可解析 | 新依赖记录于此；模块仅依赖各业务模块 `api` 端口，不直写业务表 | 已确认 |
+| 2026-11-28 | 数据导入全部经既有业务 Service（新增 `MasterdataWriteApi` / `TreasuryWriteApi` / `ReceivableWriteApi` 端口），**逐行独立事务** | MVP §3 明确禁止绕过财务校验、事务、幂等与资金流水规则；逐行事务保证失败行零残留，成功行记录业务单据主键可追溯 | 单行失败不影响其它行；导入批次与行明细落库；不引入批量事务导致的整体回滚风险 | 已确认 |
+| 2026-11-28 | 导入去重双保险：**文件级**（模板 + 文件 SHA-256 唯一，重复确认返回既有批次）与**行级**（幂等键 = `imp` + SHA-256(模板+规范化行内容) 前 40 位） | 「重复导入防护」需同时覆盖「同一文件重复提交」与「修订后文件中的相同内容行」；业务内容规范化（金额两位小数）避免格式差异导致漏判 | 同键同参由业务服务幂等返回原单据；文件内完全相同的行标记 DUPLICATE 跳过 | 已确认 |
+| 2026-11-28 | 生产部署补充：Nginx `client_max_body_size 12m`；`.env` 增加 `ADMIN_INITIAL_PASSWORD`；`application.yml` multipart 10MB/12MB | Excel 导入经 Nginx 反向代理，默认 1MB 会 413；Compose 后端环境变量此前缺少管理员初始密码 | 生产上传与容器初始化均可正常工作；已用真实 Compose 部署实测 | 已确认 |
 ## 记录规则
 
 1. 新决策追加到表格末尾，日期使用 `YYYY-MM-DD`。

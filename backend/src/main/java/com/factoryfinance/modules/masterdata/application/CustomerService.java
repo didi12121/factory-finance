@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -151,6 +152,19 @@ public class CustomerService implements CustomerDirectoryApi {
                 MasterdataConstants.STATUS_ENABLED.equals(customer.getStatus())));
     }
 
+    @Override
+    public Optional<CustomerInfo> findCustomerByName(String name) {
+        if (name == null || name.isBlank()) {
+            return Optional.empty();
+        }
+        List<Customer> matches = customerMapper.selectList(new QueryWrapper<Customer>()
+                .eq("name", name.trim())
+                .last("LIMIT 2"));
+        return matches.size() == 1
+                ? Optional.of(new CustomerInfo(matches.get(0).getId(), matches.get(0).getName(),
+                        MasterdataConstants.STATUS_ENABLED.equals(matches.get(0).getStatus())))
+                : Optional.empty();
+    }
     @Override
     public Map<Long, String> customerNames(Collection<Long> customerIds) {
         Map<Long, String> result = new HashMap<>();

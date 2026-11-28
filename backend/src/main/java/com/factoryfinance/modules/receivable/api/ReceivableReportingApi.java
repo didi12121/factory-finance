@@ -19,4 +19,17 @@ public interface ReceivableReportingApi {
      */
     record ReceivableBalance(BigDecimal outstanding, BigDecimal overdueOutstanding, BigDecimal confirmedTotal) {
     }
+
+    /** 按客户归集的应收未收余额（只含 CONFIRMED 应收单与有效核销） */
+    java.util.List<CustomerOutstanding> outstandingByCustomer();
+
+    /**
+     * @param customerId   客户主键
+     * @param customerName 客户名称（主数据缺失时回填 id 文本）
+     * @param outstanding  未收余额（原始应收 − 有效核销，恒 ≥ 0）
+     * @param originalTotal 该客户应收原始金额合计（权责发生制口径）
+     */
+    record CustomerOutstanding(long customerId, String customerName, BigDecimal outstanding,
+                               BigDecimal originalTotal) {
+    }
 }

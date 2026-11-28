@@ -71,6 +71,7 @@ export const navGroups: NavGroup[] = [
   {
     label: '基础资料',
     items: [
+      { label: '数据迁移', path: '/business/import', icon: FileText, implemented: true },
       { label: '客户管理', path: '/masterdata/customers', icon: Users, implemented: true },
       { label: '股东管理', path: '/masterdata/shareholders', icon: HandCoins, implemented: true },
       { label: '供应商管理', path: '/masterdata/suppliers', icon: Building2, implemented: true },

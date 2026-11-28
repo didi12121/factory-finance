@@ -11,6 +11,7 @@ import com.factoryfinance.infrastructure.time.BusinessTime;
 import com.factoryfinance.modules.masterdata.api.SupplierDirectoryApi;
 import com.factoryfinance.modules.payable.api.PayableReportingApi;
 import com.factoryfinance.modules.payable.api.dto.CreatePayableRequest;
+import com.factoryfinance.modules.payable.api.dto.FundableExpenseView;
 import com.factoryfinance.modules.payable.api.dto.PayableView;
 import com.factoryfinance.modules.payable.domain.Payable;
 import com.factoryfinance.modules.payable.domain.PayableStatus;
@@ -109,6 +110,12 @@ public class PayableService implements PayableReportingApi {
                 throw ValidationRules.invalid("fundedExpenseId",
                         "关联采购支出金额（" + Money.str(info.amount()) + "）必须等于应付金额（"
                                 + Money.str(amount) + "）");
+            }
+            // 同一笔采购支出最多关联一张有效应付单（数据库生成列唯一键为最终防线）
+            Payable linked = payableMapper.selectActiveByFundedExpense(fundedExpenseId);
+            if (linked != null) {
+                throw BusinessException.conflict("该采购支出已关联有效应付单 " + linked.getPayableNo()
+                        + "，禁止重复关联；如需重新关联请先撤销原应付单");
             }
         }
 
@@ -242,6 +249,28 @@ public class PayableService implements PayableReportingApi {
         return new PayableBalance(Money.canonical(outstanding), Money.canonical(overdue));
     }
 
+    @Override
+    public List<SupplierOutstanding> outstandingBySupplier() {
+        Map<Long, BigDecimal> outstanding = new java.util.LinkedHashMap<>();
+        for (PayableMapper.OutstandingRow row : payableMapper.selectOutstandingRows()) {
+            BigDecimal amount = row.amount() == null ? BigDecimal.ZERO : row.amount();
+            BigDecimal allocated = row.allocated() == null ? BigDecimal.ZERO : row.allocated();
+            BigDecimal paid = row.fundedExpenseId() == null ? allocated : amount;
+            BigDecimal remaining = amount.subtract(paid);
+            if (remaining.signum() < 0) {
+                remaining = BigDecimal.ZERO;
+            }
+            Long supplierId = row.supplierId() == null ? 0L : row.supplierId();
+            outstanding.merge(supplierId, remaining, BigDecimal::add);
+        }
+        Map<Long, String> names = supplierDirectory.supplierNames(outstanding.keySet());
+        return outstanding.entrySet().stream()
+                .map(entry -> new SupplierOutstanding(entry.getKey(),
+                        names.getOrDefault(entry.getKey(), String.valueOf(entry.getKey())),
+                        Money.canonical(entry.getValue())))
+                .toList();
+    }
+
     /** 已付金额（有效付款核销 + 已由支出单直接支付） */
     BigDecimal paidOf(Payable payable) {
         BigDecimal allocated = payableMapper.selectActiveAllocatedSum(payable.getId());
@@ -249,6 +278,25 @@ public class PayableService implements PayableReportingApi {
             return payable.getAmount();
         }
         return allocated == null ? BigDecimal.ZERO : allocated;
+    }
+
+    /** 唯一键冲突是否来自「采购支出关联」唯一键 */
+    private static boolean isExpenseLinkConflict(DuplicateKeyException duplicate) {
+        String message = duplicate.getMessage();
+        return message != null && message.contains("uk_pay_payable_funded_expense");
+    }
+
+    /**
+     * 可关联的已支付采购支出（排除已被有效应付单引用的支出），
+     * 用于前端「关联已有采购支出」选择。
+     */
+    public List<FundableExpenseView> listFundableExpenses() {
+        java.util.Set<Long> linked = new java.util.HashSet<>(payableMapper.selectLinkedExpenseIds());
+        return fundFlowPort.listConfirmedPurchaseExpenses().stream()
+                .filter(info -> !linked.contains(info.expenseId()))
+                .map(info -> new FundableExpenseView(info.expenseId(), info.docNo(),
+                        Money.str(info.amount()), info.payDate().toString()))
+                .toList();
     }
 
     private Payable insertDocument(long supplierId, LocalDate bizDate, String accountingMonth,
@@ -271,6 +319,9 @@ public class PayableService implements PayableReportingApi {
                 payableMapper.insert(doc);
                 return doc;
             } catch (DuplicateKeyException duplicate) {
+                if (isExpenseLinkConflict(duplicate)) {
+                    throw BusinessException.conflict("该采购支出已关联有效应付单，禁止重复关联");
+                }
                 if (attempt >= DOC_NO_RETRY_LIMIT - 1) {
                     throw BusinessException.conflict("应付单编号并发冲突，请稍后重试");
                 }

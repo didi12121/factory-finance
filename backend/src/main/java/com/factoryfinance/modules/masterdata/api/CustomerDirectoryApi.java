@@ -19,4 +19,7 @@ public interface CustomerDirectoryApi {
 
     /** 批量 id → 客户名称（列表展示） */
     Map<Long, String> customerNames(Collection<Long> customerIds);
+
+    /** 按名称查询客户（同名多条返回空，要求人工确认；含停用） */
+    Optional<CustomerInfo> findCustomerByName(String name);
 }

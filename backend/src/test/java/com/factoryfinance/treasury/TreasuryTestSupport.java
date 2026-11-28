@@ -34,7 +34,7 @@ public abstract class TreasuryTestSupport extends AbstractIntegrationTest {
     protected BusinessTime businessTime;
 
     /** 统一 HTTP 结果（状态码 + 解析后的响应体） */
-    protected record HttpResult(int status, JsonNode body) {
+    public record HttpResult(int status, JsonNode body) {
 
         public String code() {
             return body.path("code").asText();
@@ -46,6 +46,11 @@ public abstract class TreasuryTestSupport extends AbstractIntegrationTest {
 
         public String dataText(String field) {
             return data().path(field).asText(null);
+        }
+
+        /** 面向用户的消息（错误响应体 message） */
+        public String message() {
+            return body.path("message").asText("");
         }
     }
 

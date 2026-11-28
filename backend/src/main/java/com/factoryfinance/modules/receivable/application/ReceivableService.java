@@ -237,6 +237,31 @@ public class ReceivableService implements ReceivableReportingApi {
                 Money.canonical(confirmedTotal));
     }
 
+    @Override
+    public List<CustomerOutstanding> outstandingByCustomer() {
+        Map<Long, BigDecimal> outstandingByCustomer = new java.util.LinkedHashMap<>();
+        Map<Long, BigDecimal> originalByCustomer = new java.util.LinkedHashMap<>();
+        for (ReceivableMapper.OutstandingRow row : receivableMapper.selectOutstandingRows()) {
+            BigDecimal original = row.originalAmount() == null ? BigDecimal.ZERO : row.originalAmount();
+            BigDecimal allocated = row.allocated() == null ? BigDecimal.ZERO : row.allocated();
+            BigDecimal remaining = original.subtract(allocated);
+            if (remaining.signum() < 0) {
+                remaining = BigDecimal.ZERO;
+            }
+            Long customerId = row.customerId() == null ? 0L : row.customerId();
+            outstandingByCustomer.merge(customerId, remaining, BigDecimal::add);
+            originalByCustomer.merge(customerId, original, BigDecimal::add);
+        }
+        Map<Long, String> names = customerDirectory.customerNames(outstandingByCustomer.keySet());
+        return outstandingByCustomer.entrySet().stream()
+                .map(entry -> new CustomerOutstanding(entry.getKey(),
+                        names.getOrDefault(entry.getKey(), String.valueOf(entry.getKey())),
+                        Money.canonical(entry.getValue()),
+                        Money.canonical(originalByCustomer.getOrDefault(entry.getKey(), BigDecimal.ZERO))))
+                .toList();
+    }
+
+
     private Receivable insertDocument(long customerId, String accountingMonth, LocalDate statementDate,
                                       LocalDate dueDate, BigDecimal amount, String remark) {
         String docNo = docNoGenerator.nextStatementNo(statementDate);

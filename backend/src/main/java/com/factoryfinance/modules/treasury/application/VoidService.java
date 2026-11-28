@@ -3,6 +3,7 @@ package com.factoryfinance.modules.treasury.application;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.factoryfinance.common.exception.BusinessException;
 import com.factoryfinance.infrastructure.time.BusinessTime;
+import com.factoryfinance.modules.treasury.api.FundDocumentVoidGuard;
 import com.factoryfinance.modules.treasury.api.dto.VoidRequest;
 import com.factoryfinance.modules.treasury.api.dto.VoidView;
 import com.factoryfinance.modules.treasury.domain.DocStatus;
@@ -28,6 +29,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 撤销用例（事务边界）。
@@ -54,6 +56,8 @@ public class VoidService {
     private final VoidRecordMapper voidRecordMapper;
     private final DocNoGenerator docNoGenerator;
     private final BusinessTime businessTime;
+    /** 其它模块注册的撤销前置守卫（如应付模块：采购支出已被有效应付单引用） */
+    private final List<FundDocumentVoidGuard> voidGuards;
 
     public VoidService(ShareholderContributionMapper contributionMapper,
                        ExpenseMapper expenseMapper,
@@ -61,7 +65,8 @@ public class VoidService {
                        FundTransactionMapper transactionMapper,
                        VoidRecordMapper voidRecordMapper,
                        DocNoGenerator docNoGenerator,
-                       BusinessTime businessTime) {
+                       BusinessTime businessTime,
+                       List<FundDocumentVoidGuard> voidGuards) {
         this.contributionMapper = contributionMapper;
         this.expenseMapper = expenseMapper;
         this.transferMapper = transferMapper;
@@ -69,6 +74,17 @@ public class VoidService {
         this.voidRecordMapper = voidRecordMapper;
         this.docNoGenerator = docNoGenerator;
         this.businessTime = businessTime;
+        this.voidGuards = voidGuards == null ? List.of() : voidGuards;
+    }
+
+    /** 撤销前置守卫校验：被其它模块业务事实引用时禁止撤销（409） */
+    private void requireVoidAllowed(String docType, long docId, String docNo) {
+        for (FundDocumentVoidGuard guard : voidGuards) {
+            Optional<String> reason = guard.blockReason(docType, docId);
+            if (reason.isPresent()) {
+                throw BusinessException.conflict(reason.get() + "（" + docNo + "）");
+            }
+        }
     }
 
     @Transactional
@@ -80,6 +96,7 @@ public class VoidService {
         if (DocStatus.VOIDED.code().equals(doc.getStatus())) {
             throw BusinessException.conflict("出资单已撤销，禁止重复撤销：" + doc.getDocNo());
         }
+        requireVoidAllowed(TxnType.CONTRIBUTION.code(), doc.getId(), doc.getDocNo());
         VoidContext context = prepare(request, TxnType.CONTRIBUTION, doc.getId(), doc.getDocNo());
         TreasuryValidation.requireVoidNotBeforeBusiness(context.voidDate(), doc.getContributionDate());
         List<FundTransaction> originals = originalFlows(TxnType.CONTRIBUTION, doc.getId());
@@ -103,6 +120,7 @@ public class VoidService {
         if (DocStatus.VOIDED.code().equals(doc.getStatus())) {
             throw BusinessException.conflict("支出单已撤销，禁止重复撤销：" + doc.getDocNo());
         }
+        requireVoidAllowed(TxnType.EXPENSE.code(), doc.getId(), doc.getDocNo());
         VoidContext context = prepare(request, TxnType.EXPENSE, doc.getId(), doc.getDocNo());
         TreasuryValidation.requireVoidNotBeforeBusiness(context.voidDate(), doc.getPayDate());
         List<FundTransaction> originals = originalFlows(TxnType.EXPENSE, doc.getId());
@@ -126,6 +144,7 @@ public class VoidService {
         if (DocStatus.VOIDED.code().equals(doc.getStatus())) {
             throw BusinessException.conflict("转账单已撤销，禁止重复撤销：" + doc.getDocNo());
         }
+        requireVoidAllowed(TxnType.TRANSFER.code(), doc.getId(), doc.getDocNo());
         VoidContext context = prepare(request, TxnType.TRANSFER, doc.getId(), doc.getDocNo());
         TreasuryValidation.requireVoidNotBeforeBusiness(context.voidDate(), doc.getTransferDate());
         List<FundTransaction> originals = originalFlows(TxnType.TRANSFER, doc.getId());

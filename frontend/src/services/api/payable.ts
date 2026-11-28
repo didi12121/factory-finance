@@ -12,6 +12,7 @@ import type {
   PayableCreateInput,
   PayablePaymentStatus,
   PayableRecord,
+  FundableExpense,
   PageResult,
   PaymentCreateInput,
   PaymentRecord,
@@ -66,6 +67,11 @@ export function listPayables(query: PayableListQuery): Promise<PageResult<Payabl
 
 export function getPayable(id: EntityId): Promise<PayableRecord> {
   return get<PayableRecord>(`/payable/payables/${id}`)
+}
+
+/** 可关联的已支付采购支出（排除已被有效应付单引用者） */
+export function listFundableExpenses(): Promise<FundableExpense[]> {
+  return get<FundableExpense[]>('/payable/payables/fundable-expenses')
 }
 
 export function createPayable(input: PayableCreateInput): Promise<PayableRecord> {
