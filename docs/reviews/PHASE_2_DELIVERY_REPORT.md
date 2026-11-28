@@ -163,7 +163,7 @@
   - Docker Compose 配置校验：✅ success
   - 生产环境隔离（production / staging / uat / demo-custom）：✅ 4/4 success
   - 视觉回归候选基线（`continue-on-error: true`，信息模式）：⚠️ failure（见 §7 P3，不阻塞）
-- **Git Hash（HEAD）**：`6fbab05`（`fix(masterdata): 业务编号序列改用 Long…`）
+- **Git Hash**：代码 HEAD 6fbab05（ix(masterdata): 业务编号序列改用 Long…）；文档 HEAD  457aed（本报告与决策记录）
   - 主要提交：`e53451f` feat(phase2) 正式应收应付与回款/付款核销；`0b0f2cf` ci(e2e) CORS/代理；`78fad78` ci(e2e) 生产构建防护；`6fbab05` masterdata 序列 Long 修复
 - 本机等价验证：见 §3.4（后端 84/84、前端 453/453、E2E 61/61、隔离扫描 0 命中）
 
