@@ -113,7 +113,8 @@ public class VoidService {
 
     @Transactional
     public VoidView voidExpense(long id, VoidRequest request) {
-        Expense doc = expenseMapper.selectById(id);
+        // 锁定支出单行：与「采购支出关联应付单」互斥，保证关联校验与撤销写入在同一事务内串行
+        Expense doc = expenseMapper.selectByIdForUpdate(id);
         if (doc == null) {
             throw BusinessException.notFound("支出单");
         }

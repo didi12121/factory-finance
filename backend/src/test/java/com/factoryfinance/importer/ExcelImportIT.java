@@ -6,7 +6,12 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import com.factoryfinance.modules.importer.domain.ImportBatchRow;
+import com.factoryfinance.modules.importer.infrastructure.mapper.ImportBatchRowMapper;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentMatchers;
+import org.mockito.Mockito;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MvcResult;
@@ -29,6 +34,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * </ol>
  */
 class ExcelImportIT extends Phase2TestSupport {
+
+    /** 用于模拟批次初始化中断（第 2 行落库时抛错） */
+    @MockitoSpyBean
+    private ImportBatchRowMapper spyRowMapper;
 
     @Test
     void customerImportIsPreviewedThenImportedIdempotently() throws Exception {
@@ -280,6 +289,48 @@ class ExcelImportIT extends Phase2TestSupport {
         assertThat(rawBalance(accountId)).as("重复恢复不重复记账").isEqualByComparingTo("1400");
         assertThat(count("SELECT COUNT(*) FROM imp_batch_row WHERE batch_id = ? AND status = 'PENDING'",
                 first.path("id").asLong())).isZero();
+    }
+
+    /* ------------------------------ 批次初始化原子性 ------------------------------ */
+
+    /**
+     * 初始化中断整体回滚：创建批次与插入全部 PENDING 行在同一事务内，
+     * 中途失败时批次、行记录与业务数据均不得残留。
+     */
+    @Test
+    void initializationFailureRollsBackBatchAndPendingRows() throws Exception {
+        String suffix = java.util.UUID.randomUUID().toString().substring(0, 8);
+        byte[] file = xlsx(new String[]{"客户名称", "联系人", "电话", "备注"},
+                new String[][]{
+                        {"回滚客户A-" + suffix, "", "", ""},
+                        {"回滚客户B-" + suffix, "", "", ""},
+                });
+
+        long batchesBefore = count("SELECT COUNT(*) FROM imp_batch");
+        long rowsBefore = count("SELECT COUNT(*) FROM imp_batch_row");
+
+        java.util.concurrent.atomic.AtomicInteger inserts = new java.util.concurrent.atomic.AtomicInteger();
+        Mockito.doAnswer(invocation -> {
+            if (inserts.incrementAndGet() == 2) {
+                throw new IllegalStateException("模拟批次初始化中断");
+            }
+            return invocation.callRealMethod();
+        }).when(spyRowMapper).insert(ArgumentMatchers.any(ImportBatchRow.class));
+
+        HttpResult result = multipart("/api/v1/import/confirm", "CUSTOMER", file);
+        assertThat(result.status()).as("初始化失败应返回错误：%s", result.body()).isGreaterThanOrEqualTo(500);
+
+        assertThat(count("SELECT COUNT(*) FROM imp_batch")).as("批次整体回滚").isEqualTo(batchesBefore);
+        assertThat(count("SELECT COUNT(*) FROM imp_batch_row")).as("待处理行整体回滚").isEqualTo(rowsBefore);
+        assertThat(count("SELECT COUNT(*) FROM mst_customer WHERE name LIKE ?", "回滚客户%-" + suffix))
+                .as("未开始执行任何业务写入").isZero();
+
+        // 故障消除后重新导入可正常完成（不被残留状态阻塞）
+        Mockito.reset(spyRowMapper);
+        JsonNode retried = multipart("/api/v1/import/confirm", "CUSTOMER", file).data();
+        assertThat(retried.path("successRows").asInt()).as("重试可正常导入：%s", retried).isEqualTo(2);
+        assertThat(count("SELECT COUNT(*) FROM mst_customer WHERE name LIKE ?", "回滚客户%-" + suffix))
+                .isEqualTo(2);
     }
 
     /* ------------------------------ 辅助 ------------------------------ */

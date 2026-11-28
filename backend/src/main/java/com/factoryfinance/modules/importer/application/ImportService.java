@@ -92,6 +92,8 @@ public class ImportService {
     private final CustomerDirectoryApi customerDirectory;
     private final SupplierDirectoryApi supplierDirectory;
     private final ObjectMapper objectMapper;
+    /** 批次初始化事务模板：创建批次 + 全部 PENDING 行必须原子提交 */
+    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     public ImportService(ExcelSheetParser parser,
                          ExcelTemplateCatalog templateCatalog,
@@ -104,7 +106,8 @@ public class ImportService {
                          ReceivableWriteApi receivableWriteApi,
                          CustomerDirectoryApi customerDirectory,
                          SupplierDirectoryApi supplierDirectory,
-                         ObjectMapper objectMapper) {
+                         ObjectMapper objectMapper,
+                         org.springframework.transaction.PlatformTransactionManager transactionManager) {
         this.parser = parser;
         this.templateCatalog = templateCatalog;
         this.batchMapper = batchMapper;
@@ -117,6 +120,7 @@ public class ImportService {
         this.customerDirectory = customerDirectory;
         this.supplierDirectory = supplierDirectory;
         this.objectMapper = objectMapper;
+        this.transactionTemplate = new org.springframework.transaction.support.TransactionTemplate(transactionManager);
     }
 
     /* ------------------------------ 模板 ------------------------------ */
@@ -176,12 +180,34 @@ public class ImportService {
 
         List<ExcelSheetParser.ParsedRow> parsedRows = parser.parse(template, content);
         List<PreparedRow> prepared = prepareRows(template, parsedRows);
-        ImportBatch batch = createBatch(template, fileName(file), sha, prepared.size());
 
+        // 批次初始化（创建批次 + 全部 PENDING 行）在同一事务内完成：
+        // 全部待处理行保存成功后才会开始执行；初始化中断则整体回滚，不留下半成品批次
         List<ImportBatchRow> records = new ArrayList<>();
-        for (PreparedRow row : prepared) {
-            records.add(insertPendingRow(batch, row));
+        ImportBatch batch;
+        try {
+            batch = transactionTemplate.execute(status -> {
+                ImportBatch created = createBatch(template, fileName(file), sha, prepared.size());
+                for (PreparedRow row : prepared) {
+                    records.add(insertPendingRow(created, row));
+                }
+                // 批次总行数以实际落库行数为准（不以预估行数掩盖缺失记录）
+                ImportBatch counts = new ImportBatch();
+                counts.setId(created.getId());
+                counts.setTotalRows(records.size());
+                batchMapper.updateById(counts);
+                created.setTotalRows(records.size());
+                return created;
+            });
+        } catch (DuplicateKeyException concurrent) {
+            // 同文件并发确认：另一请求已完成初始化，返回既有批次（不重复初始化行）
+            ImportBatch concurrentBatch = batchMapper.selectByFile(template.name(), sha);
+            if (concurrentBatch != null) {
+                return toView(concurrentBatch, true);
+            }
+            throw BusinessException.conflict("导入批次创建冲突，请重试");
         }
+
         for (int i = 0; i < prepared.size(); i++) {
             executeRow(template, prepared.get(i), records.get(i));
         }
@@ -663,15 +689,7 @@ public class ImportService {
         batch.setSuccessRows(0);
         batch.setFailedRows(0);
         batch.setDuplicateRows(0);
-        try {
-            batchMapper.insert(batch);
-        } catch (DuplicateKeyException duplicate) {
-            ImportBatch existing = batchMapper.selectByFile(template.name(), sha);
-            if (existing == null) {
-                throw BusinessException.conflict("导入批次创建冲突，请重试");
-            }
-            return existing;
-        }
+        batchMapper.insert(batch);
         return batch;
     }
 
