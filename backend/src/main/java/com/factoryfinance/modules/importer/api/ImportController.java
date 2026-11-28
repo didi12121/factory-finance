@@ -98,6 +98,13 @@ public class ImportController {
         return ApiResponse.success(importService.getBatch(id));
     }
 
+    @PostMapping("/batches/{id}/resume")
+    @Operation(summary = "恢复中断批次",
+            description = "仅重跑未执行(PENDING)与失败(FAILED)行；已成功行不重复记账，恢复后统计以行明细为准")
+    public ApiResponse<ImportBatchView> resume(@PathVariable long id) {
+        return ApiResponse.success(importService.resume(id));
+    }
+
     @GetMapping("/reconciliation")
     @Operation(summary = "导入核对", description = "账户余额/总资金/客户应收/供应商应付/导入统计与差异提示")
     public ApiResponse<ReconciliationView> reconciliation() {

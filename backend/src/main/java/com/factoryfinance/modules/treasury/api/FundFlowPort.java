@@ -42,6 +42,14 @@ public interface FundFlowPort {
     Optional<PurchasePaymentInfo> findConfirmedPurchaseExpense(long expenseId);
 
     /**
+     * 锁定采购支出单行（`SELECT ... FOR UPDATE`）并返回其支付信息。
+     *
+     * <p>采购支出关联应付单与撤销支出必须共用该锁，保证状态校验与业务写入在同一事务内串行，
+     * 避免出现「已撤销支出仍关联有效已付款应付单」的结果。</p>
+     */
+    Optional<PurchasePaymentInfo> lockPurchaseExpense(long expenseId);
+
+    /**
      * 已确认且实际支付的采购支出列表（按业务日期倒序，最多 500 条），
      * 供应付模块提供「关联已有采购支出」选择项。
      */

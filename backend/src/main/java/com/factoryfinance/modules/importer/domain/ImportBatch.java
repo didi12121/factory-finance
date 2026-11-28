@@ -26,6 +26,8 @@ public class ImportBatch {
     private Integer failedRows;
     private Integer duplicateRows;
     private LocalDateTime importedAt;
+    private LocalDateTime resumedAt;
+    private Integer resumeCount;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
@@ -118,6 +120,22 @@ public class ImportBatch {
 
     public void setImportedAt(LocalDateTime importedAt) {
         this.importedAt = importedAt;
+    }
+
+    public LocalDateTime getResumedAt() {
+        return resumedAt;
+    }
+
+    public void setResumedAt(LocalDateTime resumedAt) {
+        this.resumedAt = resumedAt;
+    }
+
+    public Integer getResumeCount() {
+        return resumeCount;
+    }
+
+    public void setResumeCount(Integer resumeCount) {
+        this.resumeCount = resumeCount;
     }
 
     public LocalDateTime getCreatedAt() {

@@ -103,7 +103,8 @@ public class PayableService implements PayableReportingApi {
 
         Long fundedExpenseId = request.fundedExpenseId();
         if (fundedExpenseId != null) {
-            FundFlowPort.PurchasePaymentInfo info = fundFlowPort.findConfirmedPurchaseExpense(fundedExpenseId)
+            // 先锁定采购支出行：与「撤销采购支出」互斥，保证关联校验、重复关联校验与写入在同一事务内串行
+            FundFlowPort.PurchasePaymentInfo info = fundFlowPort.lockPurchaseExpense(fundedExpenseId)
                     .orElseThrow(() -> ValidationRules.invalid("fundedExpenseId",
                             "关联的采购支出单不存在或未确认支付"));
             if (info.amount().compareTo(amount) != 0) {

@@ -152,6 +152,60 @@ class PurchasePayableLinkIT extends Phase2TestSupport {
         assertThat(count("SELECT COUNT(*) FROM pay_payable WHERE funded_expense_id = ?", expenseId)).isEqualTo(1);
     }
 
+    /**
+     * 并发保护：撤销采购支出与「创建关联应付单」共用采购支出行锁 →
+     * 只允许一方成功，且绝不出现「已撤销支出仍关联有效已付款应付单」的结果。
+     */
+    @Test
+    void concurrentVoidAndLinkNeverLeavesVoidedExpenseLinked() throws Exception {
+        long supplierId = seedSupplier("并发保护供应商");
+        long accountId = seedAccount("并发保护账户", "BANK", "4000.00", today());
+        long expenseId = createPurchaseExpense(accountId, "900.00");
+
+        CyclicBarrier barrier = new CyclicBarrier(2);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        int linkStatus;
+        int voidStatus;
+        try {
+            List<Callable<Integer>> tasks = List.of(
+                    () -> {
+                        barrier.await(10, TimeUnit.SECONDS);
+                        return post("/api/v1/payable/payables", map(
+                                "supplierId", supplierId, "bizDate", today(),
+                                "accountingMonth", currentMonth(), "amount", "900.00",
+                                "content", "并发关联", "fundedExpenseId", expenseId,
+                                "idempotencyKey", newIdempotencyKey())).status();
+                    },
+                    () -> {
+                        barrier.await(10, TimeUnit.SECONDS);
+                        return post("/api/v1/treasury/expenses/" + expenseId + "/void",
+                                map("voidDate", today(), "reason", "并发撤销")).status();
+                    });
+            List<Future<Integer>> futures = pool.invokeAll(tasks, 30, TimeUnit.SECONDS);
+            linkStatus = futures.get(0).get();
+            voidStatus = futures.get(1).get();
+        } finally {
+            pool.shutdownNow();
+        }
+
+        boolean linked = linkStatus == 200;
+        boolean voided = voidStatus == 200;
+        assertThat(linked ^ voided).as("并发下只允许一方成功（关联=%s 撤销=%s）", linkStatus, voidStatus).isTrue();
+
+        int activeLink = count("SELECT COUNT(*) FROM pay_payable WHERE funded_expense_id = ? AND status = 'CONFIRMED'",
+                expenseId);
+        int expenseConfirmed = count("SELECT COUNT(*) FROM tst_expense WHERE id = ? AND status = 'CONFIRMED'",
+                expenseId);
+        if (linked) {
+            assertThat(activeLink).isEqualTo(1);
+            assertThat(expenseConfirmed).as("关联成功时支出必须仍为有效").isEqualTo(1);
+        } else {
+            assertThat(activeLink).as("支出已撤销时不得存在有效关联应付单").isZero();
+            assertThat(expenseConfirmed).isZero();
+            assertThat(rawBalance(accountId)).as("撤销后资金恢复").isEqualByComparingTo("4000");
+        }
+    }
+
     /* ------------------------------ 辅助 ------------------------------ */
 
     private long createPurchaseExpense(long accountId, String amount) throws Exception {

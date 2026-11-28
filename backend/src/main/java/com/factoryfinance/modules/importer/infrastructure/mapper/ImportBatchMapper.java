@@ -16,6 +16,10 @@ public interface ImportBatchMapper extends BaseMapper<ImportBatch> {
     @Select("SELECT * FROM imp_batch WHERE template_code = #{templateCode} AND file_sha256 = #{fileSha256}")
     ImportBatch selectByFile(@Param("templateCode") String templateCode, @Param("fileSha256") String fileSha256);
 
+    /** 锁定批次行（确认导入/恢复互斥，避免同一批次被并发重复执行） */
+    @Select("SELECT * FROM imp_batch WHERE id = #{id} FOR UPDATE")
+    ImportBatch selectByIdForUpdate(@Param("id") Long id);
+
     /** 当前最大批次序号（批次号 IMP-YYYYMMDD-0001 的当日序号） */
     @Select("SELECT MAX(CAST(SUBSTRING(batch_no, LENGTH(#{prefix}) + 1) AS UNSIGNED)) FROM imp_batch "
             + "WHERE batch_no REGEXP CONCAT('^', #{prefix}, '[0-9]+$')")

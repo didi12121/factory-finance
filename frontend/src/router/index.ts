@@ -112,6 +112,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/features/masterdata/SuppliersView.vue').then((m) => m.default),
         meta: { title: '供应商管理', requiresAuth: true },
       },
+      {
+        path: 'business/import',
+        component: () => import('@/features/importing/ImportView.vue').then((m) => m.default),
+        meta: { title: '数据迁移', requiresAuth: true },
+      },
 
       { path: 'system/settings', ...placeholder('系统设置', 'Phase 1') },
 

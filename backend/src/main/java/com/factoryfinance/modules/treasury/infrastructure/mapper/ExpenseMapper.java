@@ -23,6 +23,10 @@ public interface ExpenseMapper extends BaseMapper<Expense> {
             + "WHERE doc_no REGEXP CONCAT('^', #{prefix}, '[0-9]+$') FOR UPDATE")
     Long selectMaxSeqForUpdate(@Param("prefix") String prefix);
 
+    /** 锁定支出单行（采购支出关联创建与撤销共用同一锁，串行化状态校验与写入） */
+    @Select("SELECT * FROM tst_expense WHERE id = #{id} FOR UPDATE")
+    Expense selectByIdForUpdate(@Param("id") Long id);
+
     @Select("SELECT * FROM tst_expense WHERE doc_no = #{docNo} FOR UPDATE")
     Expense selectByDocNoForUpdate(@Param("docNo") String docNo);
 

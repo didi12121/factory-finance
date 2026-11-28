@@ -30,6 +30,7 @@ import {
   listBatches,
   listTemplates,
   previewImport,
+  resumeBatch,
   type ImportBatch,
   type ImportPreview,
   type ImportRow,
@@ -65,6 +66,7 @@ const STATUS_LABELS: Record<string, string> = {
   VALID: '可导入',
   INVALID: '校验失败',
   DUPLICATE: '重复（跳过）',
+  PENDING: '待执行',
   SUCCESS: '成功',
   FAILED: '失败',
 }
@@ -153,6 +155,25 @@ async function onConfirm(): Promise<void> {
     toast.error('导入失败', apiErrorMessage(error, '导入失败，请检查文件后重试。'))
   } finally {
     importing.value = false
+  }
+}
+
+/** 该批次是否仍有未完成行（可安全恢复） */
+function canResume(item: ImportBatch): boolean {
+  return item.rows.some((row) => row.status === 'PENDING' || row.status === 'FAILED')
+}
+
+async function onResume(item: ImportBatch): Promise<void> {
+  try {
+    const resumed = await resumeBatch(item.id)
+    batch.value = resumed
+    toast.success(
+      '恢复完成',
+      `批次 ${resumed.batchNo}：成功 ${resumed.successRows} 行，失败 ${resumed.failedRows} 行，重复 ${resumed.duplicateRows} 行`,
+    )
+    await Promise.all([loadBatches(), loadReconciliation()])
+  } catch (error) {
+    toast.error('恢复失败', apiErrorMessage(error, '请稍后重试。'))
   }
 }
 
@@ -371,6 +392,7 @@ function rowSummary(row: ImportRow): string {
                 <TableHead class="text-right">重复</TableHead>
                 <TableHead>状态</TableHead>
                 <TableHead>时间</TableHead>
+                <TableHead>操作</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -384,9 +406,21 @@ function rowSummary(row: ImportRow): string {
                 <TableCell class="text-right tabular">{{ item.duplicateRows }}</TableCell>
                 <TableCell>{{ item.status }}</TableCell>
                 <TableCell class="tabular text-caption">{{ item.importedAt ?? item.createdAt }}</TableCell>
+                <TableCell>
+                  <Button
+                    v-if="canResume(item)"
+                    variant="ghost"
+                    size="sm"
+                    :data-testid="`resume-${item.batchNo}`"
+                    @click="onResume(item)"
+                  >
+                    恢复未完成行
+                  </Button>
+                  <span v-else class="text-caption text-text-muted">—</span>
+                </TableCell>
               </TableRow>
               <TableRow v-if="batches.length === 0">
-                <TableCell :colspan="9" class="text-center text-caption text-text-muted">暂无导入批次</TableCell>
+                <TableCell :colspan="10" class="text-center text-caption text-text-muted">暂无导入批次</TableCell>
               </TableRow>
             </TableBody>
           </Table>

@@ -122,6 +122,18 @@ public class TreasuryFundFlowPort implements FundFlowPort {
     }
 
     @Override
+    public Optional<PurchasePaymentInfo> lockPurchaseExpense(long expenseId) {
+        Expense expense = expenseMapper.selectByIdForUpdate(expenseId);
+        if (expense == null
+                || !DocStatus.CONFIRMED.code().equals(expense.getStatus())
+                || !ExpenseCategory.PURCHASE.code().equals(expense.getCategory())) {
+            return Optional.empty();
+        }
+        return Optional.of(new PurchasePaymentInfo(expense.getId(), expense.getDocNo(),
+                expense.getAmount(), expense.getPayDate()));
+    }
+
+    @Override
     public java.util.List<PurchasePaymentInfo> listConfirmedPurchaseExpenses() {
         return expenseMapper.selectList(new QueryWrapper<Expense>()
                         .eq("category", ExpenseCategory.PURCHASE.code())

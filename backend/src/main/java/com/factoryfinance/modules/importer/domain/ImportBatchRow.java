@@ -18,6 +18,14 @@ public class ImportBatchRow {
     private Long id;
     private Long batchId;
     private Integer rowNo;
+    /** 模板编码（跨批次按「模板 + 原始记录标识」去重） */
+    private String templateCode;
+    /** 原始记录标识（财务模板必填；主数据模板为空） */
+    private String sourceRef;
+    /** 规范化内容哈希（判断「同标识同内容=重复」「同标识不同内容=冲突」） */
+    private String contentHash;
+    /** 原始行值 JSON（恢复中断批次时重建写命令） */
+    private String rowValues;
     private String status;
     private String message;
     private String bizDocType;
@@ -39,6 +47,38 @@ public class ImportBatchRow {
 
     public Long getBatchId() {
         return batchId;
+    }
+
+    public String getTemplateCode() {
+        return templateCode;
+    }
+
+    public void setTemplateCode(String templateCode) {
+        this.templateCode = templateCode;
+    }
+
+    public String getSourceRef() {
+        return sourceRef;
+    }
+
+    public void setSourceRef(String sourceRef) {
+        this.sourceRef = sourceRef;
+    }
+
+    public String getContentHash() {
+        return contentHash;
+    }
+
+    public void setContentHash(String contentHash) {
+        this.contentHash = contentHash;
+    }
+
+    public String getRowValues() {
+        return rowValues;
+    }
+
+    public void setRowValues(String rowValues) {
+        this.rowValues = rowValues;
     }
 
     public void setBatchId(Long batchId) {

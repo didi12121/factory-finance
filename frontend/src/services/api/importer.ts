@@ -23,7 +23,7 @@ export interface ImportTemplateInfo {
 }
 
 /** 行状态 */
-export type ImportRowStatus = 'VALID' | 'INVALID' | 'DUPLICATE' | 'SUCCESS' | 'FAILED'
+export type ImportRowStatus = 'VALID' | 'INVALID' | 'DUPLICATE' | 'PENDING' | 'SUCCESS' | 'FAILED'
 
 /** 单行结果 */
 export interface ImportRow {
@@ -65,6 +65,14 @@ export interface ImportBatch {
   createdBy: string | null
   reused: boolean
   rows: ImportRow[]
+}
+
+/**
+ * 恢复中断的导入批次：仅重跑未执行（PENDING）与失败（FAILED）行，
+ * 已成功行不重复记账。
+ */
+export function resumeBatch(id: string): Promise<ImportBatch> {
+  return post<ImportBatch>(`/import/batches/${id}/resume`, {})
 }
 
 /** 导入核对 */
@@ -117,6 +125,7 @@ export function listBatches(limit = 20): Promise<ImportBatch[]> {
 export function getBatch(id: string): Promise<ImportBatch> {
   return get<ImportBatch>(`/import/batches/${id}`)
 }
+
 
 /** 导入核对 */
 export function fetchReconciliation(): Promise<Reconciliation> {

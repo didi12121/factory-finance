@@ -37,6 +37,7 @@ public enum ImportTemplate {
             Column.optional("备注", ColumnType.TEXT))),
 
     CONTRIBUTION("股东出资", List.of(
+            Column.required("原始记录标识", ColumnType.TEXT),
             Column.required("股东名称", ColumnType.TEXT),
             Column.required("出资日期", ColumnType.DATE),
             Column.required("资金账户", ColumnType.TEXT),
@@ -44,6 +45,7 @@ public enum ImportTemplate {
             Column.optional("备注", ColumnType.TEXT))),
 
     EXPENSE("日常支出", List.of(
+            Column.required("原始记录标识", ColumnType.TEXT),
             Column.required("支出分类", ColumnType.EXPENSE_CATEGORY),
             Column.required("支出内容", ColumnType.TEXT),
             Column.required("业务日期", ColumnType.DATE),
@@ -55,6 +57,7 @@ public enum ImportTemplate {
             Column.optional("备注", ColumnType.TEXT))),
 
     RECEIVABLE("应收账款", List.of(
+            Column.required("原始记录标识", ColumnType.TEXT),
             Column.required("客户名称", ColumnType.TEXT),
             Column.required("所属月份", ColumnType.MONTH),
             Column.required("对账日期", ColumnType.DATE),
@@ -63,6 +66,7 @@ public enum ImportTemplate {
             Column.optional("备注", ColumnType.TEXT))),
 
     RECEIPT("加工费回款", List.of(
+            Column.required("原始记录标识", ColumnType.TEXT),
             Column.required("客户名称", ColumnType.TEXT),
             Column.required("实际到账日期", ColumnType.DATE),
             Column.required("收款账户", ColumnType.TEXT),
@@ -133,6 +137,19 @@ public enum ImportTemplate {
     public Optional<Column> column(String header) {
         return columns.stream().filter(column -> column.header().equals(header)).findFirst();
     }
+
+    /**
+     * 是否财务业务模板（出资/支出/应收/回款）。
+     *
+     * <p>财务模板按「原始记录标识」做幂等控制；主数据模板（客户/供应商/股东/资金账户）
+     * 按业务名称去重，两套去重逻辑互不影响。</p>
+     */
+    public boolean isFinancial() {
+        return this == CONTRIBUTION || this == EXPENSE || this == RECEIVABLE || this == RECEIPT;
+    }
+
+    /** 原始记录标识列名（财务模板必填） */
+    public static final String SOURCE_REF_HEADER = "原始记录标识";
 
     public static Optional<ImportTemplate> of(String code) {
         if (code == null) {

@@ -30,6 +30,8 @@ public class PurchaseExpenseLinkGuard implements FundDocumentVoidGuard {
         if (!EXPENSE_DOC_TYPE.equals(docType)) {
             return Optional.empty();
         }
+        // 调用方 VoidService.voidExpense 已在同事务内锁定该采购支出行（selectByIdForUpdate），
+        // 因此此处直接读取关联即可：与「创建关联应付单」互斥，不会读到过期状态
         Payable linked = payableMapper.selectActiveByFundedExpense(docId);
         if (linked == null) {
             return Optional.empty();

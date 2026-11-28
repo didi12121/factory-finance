@@ -95,6 +95,7 @@ public class ExcelTemplateCatalog {
             case ACCOUNT_TYPE -> "银行/现金/微信/支付宝/其他";
             case EXPENSE_CATEGORY -> "采购=PURCHASE、工资=SALARY、电费=ELECTRICITY、水费=WATER、网络=INTERNET、房租=RENT、辅料=SUPPLIES、维修=REPAIR、运输=TRANSPORT、其他=OTHER";
             case TEXT -> switch (header) {
+                case "原始记录标识" -> "原始 Excel 中该笔业务的唯一标识（如流水号/行号/单号），同一标识重复导入不会重复记账；必填且不可与其它记录重复";
                 case "资金账户", "付款账户", "收款账户" -> "已存在的资金账户名称（与账户管理一致）";
                 case "股东名称", "客户名称", "供应商名称" -> "已存在的名称（导入前需先导入对应主数据）";
                 case "核销对账单编号" -> "多个编号用英文逗号分隔，需与「核销金额」一一对应";
