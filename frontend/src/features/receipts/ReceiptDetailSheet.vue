@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * 收款单详情（DetailSheet）：收款单 + 核销明细 + 关联资金流入流水。
- * 数据只经 usePrototypeStore 读取（单一数据源）；金额一律 MoneyText 展示。
+ * 数据来源：useBusinessStore（真实后端 + MySQL）；金额一律 MoneyText 展示。
  */
 import { computed } from 'vue'
 
@@ -19,7 +19,7 @@ import EmptyState from '@/components/shared/EmptyState.vue'
 import { formatOperationDateTime } from '@/components/ui/date'
 import type { EntityId, ReceiptDetail } from '@/features/prototype/contracts'
 import { sumAmounts } from '@/features/prototype/domain/amounts'
-import { usePrototypeStore } from '@/features/prototype/stores/prototype'
+import { useBusinessStore } from '@/features/business/businessStore'
 import { buildReceiptRowViews } from './receiptModel'
 
 const props = defineProps<{
@@ -30,7 +30,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{ 'update:open': [value: boolean] }>()
 
-const store = usePrototypeStore()
+const store = useBusinessStore()
 
 const rowView = computed(() => {
   const current = props.detail
@@ -47,7 +47,7 @@ const transactionNo = computed(() => {
   if (current === null) {
     return '—'
   }
-  return store.fundTransactions.find((item) => item.id === current.receipt.fundTransactionId)?.transactionNo ?? '—'
+  return store.transactionNoOfReceipt(current.receipt.id) ?? '—'
 })
 
 const allocatedTotal = computed(() => {

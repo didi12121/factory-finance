@@ -77,12 +77,23 @@ export interface WorkbenchMetric {
   caption: string
 }
 
+/** 应收/应付余额（来自真实数据库；未取到时为 null → 展示「数据不可用」，禁止显假数字） */
+export interface BusinessBalances {
+  receivableOutstanding: string | null
+  payableOutstanding: string | null
+}
+
 /**
  * 概览指标装配（真实 API 数据）。
- * 应收相关指标未开通：value=null + caption「待开通」，禁止显假数字；
+ * 应收/应付余额读取真实数据库；未取到时 value=null 并明确标注「数据不可用」；
  * 全部指标禁止标注「净利润」。
  */
-export function buildWorkbenchMetrics(summary: DashboardSummary): WorkbenchMetric[] {
+export function buildWorkbenchMetrics(
+  summary: DashboardSummary,
+  balances?: BusinessBalances,
+): WorkbenchMetric[] {
+  const receivable = balances?.receivableOutstanding ?? null
+  const payable = balances?.payableOutstanding ?? null
   return [
     {
       key: 'fundBalance',
@@ -111,8 +122,14 @@ export function buildWorkbenchMetrics(summary: DashboardSummary): WorkbenchMetri
     {
       key: 'receivableOutstanding',
       label: '当前应收余额',
-      value: null,
-      caption: '待开通',
+      value: receivable,
+      caption: receivable === null ? '应收数据不可用' : '债权余额 · 原始应收 − 有效核销',
+    },
+    {
+      key: 'payableOutstanding',
+      label: '当前应付余额',
+      value: payable,
+      caption: payable === null ? '应付数据不可用' : '债务余额 · 应付金额 − 有效付款',
     },
   ]
 }

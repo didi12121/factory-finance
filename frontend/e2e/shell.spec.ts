@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test'
 
+import { createCustomer, createReceivable, today, uniqueSuffix } from './business-fixtures'
+
 test.describe('Application Shell', () => {
   test('页面正常加载并展示侧边栏与导航分组', async ({ page }) => {
     await page.goto('/workbench')
@@ -57,16 +59,23 @@ test.describe('Application Shell', () => {
     expect(overflow).toBeLessThanOrEqual(0)
   })
 
-  test('详情页高亮父级导航；导航状态与页面能力一致（去噪后的规划中标注）', async ({ page }) => {
+  test('详情页高亮父级导航；导航状态与页面能力一致（去噪后的规划中标注）', async ({ page, request }) => {
+    const customer = await createCustomer(request, `导航客户-${uniqueSuffix()}`)
     await page.goto('/workbench')
     const sidebar = page.locator('[data-testid="sidebar"]')
 
-    // 已实现原型页可访问（正常链接）
+    // 已实现业务页可访问（正常链接）
     await expect(sidebar.getByRole('link', { name: '应收账款', exact: true })).toBeVisible()
     await expect(sidebar.getByRole('link', { name: '资金流水', exact: true })).toBeVisible()
 
-    // 详情页高亮父级导航（/business/receivables/:id → 应收账款 aria-current）
-    await page.goto('/business/receivables/ar-004')
+    // 详情页高亮父级导航（真实应收单 id：从 API 创建后进入详情页）
+    const created = await createReceivable(request, {
+      customerId: customer.id,
+      amount: '1000.00',
+      dueDate: today(),
+      label: '导航高亮验证',
+    })
+    await page.goto(`/business/receivables/${created.id}`)
     await expect(page.getByTestId('receivable-detail-page')).toBeVisible()
     await expect(sidebar.getByRole('link', { name: '应收账款', exact: true })).toHaveAttribute(
       'aria-current',
@@ -77,7 +86,7 @@ test.describe('Application Shell', () => {
     ).not.toHaveAttribute('aria-current', 'page')
 
     // 整组未实现仅分组级一次「规划中」（替代逐组重复的「未实现」标签）
-    await expect(sidebar.getByText('规划中')).toHaveCount(3)
+    await expect(sidebar.getByText('规划中')).toHaveCount(2)
     await expect(sidebar.getByText('未实现')).toHaveCount(0)
   })
 })

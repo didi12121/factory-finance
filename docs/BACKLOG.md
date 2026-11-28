@@ -55,3 +55,49 @@
 - **CORS 集成修复**：浏览器 POST 携带 Origin（Playwright 预览端口）被 CORS 过滤器 403；修复为 dev/test 允许本机回环来源模式（生产保持严格白名单），`CorsPolicyIT` 增补断言。
 - **报表查询日期语义修正**：dashboard/transactions 查询区间不再拒绝未来结束日（业务写日期仍强制 ≤ 当前业务日期）；根因=前端本月区间结束日为月末。
 - **全局登录态**：e2e 注入 storageState（global-setup 登录），phase1-auth 自行清空测登录流程。
+
+---
+
+## D. Phase 2（应收应付与核销）测试规约调整
+
+> 判定口径：仅在**被测实现已不存在**（原型内存 Store 被真实 API 取代）或**断言语义依赖演示夹具**
+> （固定基准日、固定行数、示例客户）时调整；真实业务红线（幂等、核销不超额、跨客户/供应商、
+> 撤销可追溯）全部保留并在新规约中加强。
+
+### D1. 删除的原型驱动规格（替换为真实业务规格）
+
+| # | 规格 | 删除原因 | 替代 |
+| --- | --- | --- | --- |
+| D1-1 | `src/features/receivables/ReceivableDetailView.test.ts` | 断言 `usePrototypeStore` 派生的演示数据（ar-004 / rc-003 固定金额） | `e2e/receivables.spec.ts`（真实详情页 + 真实应收单 id）、`src/features/business/businessStore.test.ts`（派生口径） |
+| D1-2 | `src/features/receipts/receipts-flow.test.ts` | 直接驱动内存 Mock Store 的核销引擎（resetDemoData、fixture 编号） | `src/features/business/businessStore.test.ts` + `e2e/receipts.spec.ts` + `e2e/phase2-acceptance.spec.ts`（场景一：8000+7000 核销） |
+| D1-3 | `src/features/receipts/receipts-guard.test.ts` | 上述 Mock Store 的守卫用例（示例客户 A–E、未分配/超额由 Mock 判定） | `e2e/phase2-acceptance.spec.ts`（超额/跨客户/未全额核销/幂等/撤销，均由真实后端判定） |
+| D1-4 | `src/features/receipts/receiptsTestHarness.ts` | 仅服务于已删除的 Mock Store 用例 | —（真实 API 测试改用 `services/api/testAdapter`） |
+
+### D2. 改写为真实数据的 E2E 规格
+
+| # | 规格 | 调整内容 |
+| --- | --- | --- |
+| D2-1 | `e2e/date-inputs.spec.ts` | 固定基准日 2026-11-30 与固定行数（共 24/18 条）改为真实业务日期与组件行为断言；删除依赖 Mock 行数的区间计数断言 |
+| D2-2 | `e2e/layout-audit.spec.ts` | 就绪 testid 更新（`metric-fundBalance`/`receipt-list`）；长金额用例改用 API 创建的真实客户与当前月份 |
+| D2-3 | `e2e/shell.spec.ts` | 详情页导航高亮改用真实应收单 id；「规划中」分组数 3 → 2（应付账款/供应商已交付） |
+| D2-4 | `e2e/receivables.spec.ts`、`e2e/receipts.spec.ts` | 由 Mock 交互改写为真实后端业务流（新建应收 → 列表/详情 → 回款登记 → 全额核销限制） |
+
+### D3. 新增真实业务规格
+
+| 规格 | 覆盖 |
+| --- | --- |
+| `backend/.../receivable/ReceivableAndReceiptIT.java` | 确认应收不动资金、一收多销、一销多次、超额/跨客户/未全额拒绝且零变化、幂等、并发不超额、撤销恢复与可追溯、未来会计月份拒绝 |
+| `backend/.../payable/PayableAndPaymentIT.java` | 确认应付不动资金、部分付款、多单核销、超额/跨供应商/未全额拒绝、支出单直接支付禁止重复付款、撤销恢复、付款幂等 |
+| `frontend/src/features/business/businessStore.test.ts` | 前端真实 API 接线（幂等键透传、派生口径、失败不回退 Mock） |
+| `frontend/e2e/phase2-acceptance.spec.ts` | 场景一/二 + 幂等 + 超额/跨客户/未全额 + 撤销 + 非法金额（真实浏览器 + 真实数据库） |
+| `frontend/e2e/payables` 相关用例（含于 phase2-acceptance） | 应付列表 → 付款对话框 → 核销明细 → 余额变化 |
+
+## E. Phase 2 遗留（P2/P3，不阻塞主线）
+
+| 级别 | 事项 | 说明 |
+| --- | --- | --- |
+| P2 | 回款/付款“按到期日自动分配”仅回款侧提供，付款侧仅提供手动核销与预览 | 任务仅要求回款自动分配；付款侧自动分配可作为后续增强 |
+| P2 | 应收/应付列表分页在内存完成（派生状态/逾期筛选需全量派生） | 数据量增大后需改为 SQL 侧派生或物化列；当前工厂规模可接受 |
+| P2 | `docker compose` 容器重启持久化验证未在本会话执行 | 本机 Docker 守护进程不可用；Compose 配置已补齐 `ADMIN_INITIAL_PASSWORD` 并由 CI `compose-config` Job 校验 |
+| P3 | 应收/应付撤销暂无独立「撤销单号」展示页 | 撤销单号与撤销日期已在单据视图返回，可由详情页后续补充 |
+| P3 | 供应商缺少地址字段（与客户主数据不对称） | 任务要求最小可用字段集 |

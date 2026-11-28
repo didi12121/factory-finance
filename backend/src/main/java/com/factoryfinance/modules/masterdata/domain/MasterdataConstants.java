@@ -16,6 +16,8 @@ public final class MasterdataConstants {
     public static final String CUSTOMER_NO_PREFIX = "CUS-";
     /** 股东编号前缀 */
     public static final String SHAREHOLDER_NO_PREFIX = "SH-";
+    /** 供应商编号前缀 */
+    public static final String SUPPLIER_NO_PREFIX = "SUP-";
 
     /** 客户编号正则（CUS- 加 4 位起数字） */
     public static final String CUSTOMER_NO_REGEX = "CUS-[0-9]{4,}";

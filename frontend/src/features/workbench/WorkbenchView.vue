@@ -20,7 +20,7 @@ import PageHeader from '@/components/shared/PageHeader.vue'
 import Button from '@/components/ui/button/Button.vue'
 import { DateRangeInput } from '@/components/ui/date'
 import FinancialMetric from '@/components/finance/FinancialMetric.vue'
-import { apiErrorMessage, treasuryApi, type DashboardSummary } from '@/services/api'
+import { apiErrorMessage, receivableApi, payableApi, treasuryApi, type DashboardSummary } from '@/services/api'
 import { todayLocalDate } from '@/utils/localDate'
 import {
   buildRecentRowModel,
@@ -53,6 +53,7 @@ async function loadSummary(): Promise<void> {
       return
     }
     summary.value = result
+    void loadBalances()
   } catch (error) {
     if (seq !== loadSeq) {
       return
@@ -66,10 +67,31 @@ async function loadSummary(): Promise<void> {
   }
 }
 
-onMounted(loadSummary)
+onMounted(() => {
+  void loadSummary()
+  void loadBalances()
+})
 watch(period, loadSummary, { deep: true })
 
-const metrics = computed(() => (summary.value === null ? [] : buildWorkbenchMetrics(summary.value)))
+const balances = ref<{ receivableOutstanding: string | null; payableOutstanding: string | null }>(
+  { receivableOutstanding: null, payableOutstanding: null },
+)
+
+
+/** 应收/应付余额（真实数据库；失败时保持 null → 指标标注「数据不可用」，不回退假数据） */
+async function loadBalances(): Promise<void> {
+  const [receivable, payable] = await Promise.allSettled([
+    receivableApi.fetchReceivableBalance(),
+    payableApi.fetchPayableBalance(),
+  ])
+  balances.value = {
+    receivableOutstanding: receivable.status === 'fulfilled' ? receivable.value.outstanding : null,
+    payableOutstanding: payable.status === 'fulfilled' ? payable.value.outstanding : null,
+  }
+}
+const metrics = computed(() =>
+  summary.value === null ? [] : buildWorkbenchMetrics(summary.value, balances.value),
+)
 const recentRows = computed(() =>
   summary.value === null ? [] : summary.value.recentTransactions.map(buildRecentRowModel),
 )
@@ -145,13 +167,13 @@ function updateCustom(field: 'customFrom' | 'customTo', value: string): void {
     </div>
 
     <template v-else-if="summary !== null">
-      <!-- 资金概览指标（连续区域；应收区域标注待开通，不显假数字） -->
+      <!-- 资金与应收/应付概览指标（网格自适应换行，禁止页面级横向溢出） -->
       <SectionPanel title="资金概览" description="余额类为当前余额；期间发生额随筛选变化。" flush>
-        <div class="flex flex-col divide-y px-5 xl:flex-row xl:divide-x xl:divide-y-0">
+        <div class="grid grid-cols-1 gap-x-6 gap-y-4 px-5 py-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
           <div
             v-for="metric in metrics"
             :key="metric.key"
-            class="flex-1 py-4 xl:px-4"
+            class="flex-1"
             :data-testid="`metric-${metric.key}`"
           >
             <FinancialMetric

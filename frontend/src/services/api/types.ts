@@ -33,27 +33,54 @@ export type FundAccountType = 'CASH' | 'BANK' | 'WECHAT' | 'ALIPAY' | 'OTHER'
 export type TransactionDirection = 'IN' | 'OUT'
 
 /**
- * 业务交易类型（资金流水分类）。
+ * 业务交易类型（资金流水分类，与后端 TxnType 一致）。
  * 业务与财务分离：类型表达业务性质，不决定会计科目。
+ * 历史原型取值（PROCESSING_FEE_RECEIPT / SHAREHOLDER_CONTRIBUTION / UTILITIES 等）
+ * 仅用于兼容展示旧数据，不再作为新请求取值。
  */
 export type TransactionType =
   /** 加工费回款（实际收款，资金流入；≠ 加工收入确认） */
-  | 'PROCESSING_FEE_RECEIPT'
+  | 'RECEIPT'
+  /** 应付付款（实际付款，资金流出） */
+  | 'PAYMENT'
   /** 股东出资（计入所有者权益，禁止计入营业收入） */
+  | 'CONTRIBUTION'
+  /** 日常支出（已实际支付，资金流出；≠ 会计费用） */
+  | 'EXPENSE'
+  /** 内部转账（账户间划转，不产生收支） */
+  | 'TRANSFER'
+  /** 撤销更正（反向流水） */
+  | 'VOID'
+  /** 历史原型取值：加工费回款 */
+  | 'PROCESSING_FEE_RECEIPT'
+  /** 历史原型取值：股东出资 */
   | 'SHAREHOLDER_CONTRIBUTION'
-  /** 工资支出 */
+  /** 历史原型取值：工资支出 */
   | 'SALARY'
-  /** 水电费支出 */
+  /** 历史原型取值：水电支出 */
   | 'UTILITIES'
-  /** 采购支出 */
+  /** 历史原型取值：采购支出 */
   | 'PURCHASE'
-  /** 内部转账（账户间划转，不产生收支，仅改变资金分布） */
+  /** 历史原型取值：内部转账 */
   | 'INTERNAL_TRANSFER'
   /** 其他 */
   | 'OTHER'
 
-/** 支出分类（支出单业务分类） */
-export type ExpenseCategory = 'SALARY' | 'UTILITIES' | 'PURCHASE' | 'OTHER'
+/**
+ * 支出分类（与后端 ExpenseCategory / V2 迁移 CHECK 约束一致，共 10 种）。
+ * 资金支出 ≠ 会计费用；UTILITIES 已由 ELECTRICITY / WATER / INTERNET 细分替代。
+ */
+export type ExpenseCategory =
+  | 'PURCHASE'
+  | 'SALARY'
+  | 'ELECTRICITY'
+  | 'WATER'
+  | 'INTERNET'
+  | 'RENT'
+  | 'SUPPLIES'
+  | 'REPAIR'
+  | 'TRANSPORT'
+  | 'OTHER'
 
 /** 业务单据状态：已确认 / 已撤销（撤销保留原单据 + 反向流水，禁止物理删除） */
 export type RecordStatus = 'CONFIRMED' | 'VOIDED'
@@ -67,6 +94,10 @@ export type SourceDocType =
   | 'EXPENSE'
   | 'TRANSFER'
   | 'RECEIPT'
+  | 'PAYMENT'
+  | 'VOID'
+  | 'RECEIVABLE'
+  | 'PAYABLE'
   | 'PAYROLL'
   | 'PURCHASE'
   | 'OTHER'
@@ -204,6 +235,8 @@ export interface ContributionInput {
   contributionDate: LocalDate
   amount: DecimalString
   remark?: string | null
+  /** 请求幂等键：每次独立业务操作生成一次，重试复用同一键 */
+  idempotencyKey: string
 }
 
 /** 支出单（确认时同事务生成 OUT 流水；字段名对齐后端 ExpenseView） */
@@ -237,10 +270,14 @@ export interface ExpenseInput {
   accountId: number
   amount: DecimalString
   payee?: string | null
+  /** 工资支出必填：员工名称 */
   employeeName?: string | null
+  /** 工资支出必填：工资月份（YYYY-MM） */
   salaryMonth?: string | null
   attachmentRef?: string | null
   remark?: string | null
+  /** 请求幂等键：每次独立业务操作生成一次，重试复用同一键 */
+  idempotencyKey: string
 }
 
 /** 内部转账单（确认时同事务生成 OUT+IN 成对流水；字段名对齐后端 TransferView） */
@@ -266,6 +303,8 @@ export interface TransferInput {
   toAccountId: number
   amount: DecimalString
   remark?: string | null
+  /** 请求幂等键：每次独立业务操作生成一次，重试复用同一键 */
+  idempotencyKey: string
 }
 
 /** 业务单据列表查询（分页 + 关键字 + 日期范围 + 状态） */
@@ -350,4 +389,268 @@ export interface DashboardSummary {
   recentTransactions: FundTransaction[]
   /** 支出分类（后端暂未提供，待开通） */
   expenseBreakdown?: ExpenseCategoryStat[]
+}
+
+/* ========================= Phase 2：应收 / 应付 ========================= */
+
+/** 回款状态（由有效核销派生；逾期为独立属性，不混入状态） */
+export type ReceivablePaymentStatus = 'UNPAID' | 'PARTIALLY_PAID' | 'SETTLED'
+
+/** 应付款状态（由已付金额派生） */
+export type PayablePaymentStatus = 'UNPAID' | 'PARTIALLY_PAID' | 'SETTLED'
+
+/** 核销明细状态：ACTIVE 有效 / REVERSED 已随收付款撤销冲回（保留原事实） */
+export type AllocationStatus = 'ACTIVE' | 'REVERSED'
+
+/** 字段/业务错误（预览与校验返回） */
+export interface BusinessErrorView {
+  code: string
+  message: string
+}
+
+/* -------------------------------- 供应商 -------------------------------- */
+
+/** 供应商（编号后端生成 SUP-0001 递增） */
+export interface Supplier {
+  id: EntityId
+  supplierNo: string
+  name: string
+  contact: string | null
+  phone: string | null
+  remark: string | null
+  status: EnableStatus
+  createdAt: string | null
+  updatedAt: string | null
+}
+
+/** 供应商新增/更新载荷 */
+export interface SupplierInput {
+  name: string
+  contact?: string | null
+  phone?: string | null
+  remark?: string | null
+  status?: EnableStatus
+}
+
+/* -------------------------------- 应收单 -------------------------------- */
+
+/** 应收单（确认不产生资金流水；已收/未收/状态/逾期均为派生值） */
+export interface ReceivableRecord {
+  id: EntityId
+  statementNo: string
+  customerId: EntityId
+  customerName: string | null
+  accountingMonth: string
+  statementDate: LocalDate
+  dueDate: LocalDate | null
+  originalAmount: DecimalString
+  paidAmount: DecimalString
+  outstandingAmount: DecimalString
+  paymentStatus: ReceivablePaymentStatus
+  overdue: boolean
+  status: RecordStatus
+  remark: string | null
+  voidRecordId: EntityId | null
+  voidNo: string | null
+  voidDate: LocalDate | null
+  createdAt: string | null
+  createdBy: string | null
+}
+
+/** 应收单新建载荷 */
+export interface ReceivableCreateInput {
+  customerId: number
+  accountingMonth: string
+  statementDate: LocalDate
+  dueDate?: LocalDate | null
+  amount: DecimalString
+  remark?: string | null
+  idempotencyKey: string
+}
+
+/* -------------------------------- 回款单 -------------------------------- */
+
+/** 核销明细（收款单 ↔ 应收单） */
+export interface ReceiptAllocationRecord {
+  id: EntityId
+  receiptId: EntityId
+  receiptNo: string | null
+  receivableId: EntityId
+  statementNo: string | null
+  allocationAmount: DecimalString
+  status: AllocationStatus
+  allocatedAt: string | null
+}
+
+/** 收款单（一笔收款只对应一条资金流入流水） */
+export interface ReceiptRecord {
+  id: EntityId
+  receiptNo: string
+  customerId: EntityId
+  customerName: string | null
+  receiptDate: LocalDate
+  accountId: EntityId
+  accountName: string | null
+  actualAmount: DecimalString
+  fundTransactionId: EntityId | null
+  fundTransactionNo: string | null
+  externalRef: string | null
+  remark: string | null
+  status: RecordStatus
+  voidRecordId: EntityId | null
+  voidNo: string | null
+  voidDate: LocalDate | null
+  allocations: ReceiptAllocationRecord[]
+  createdAt: string | null
+  createdBy: string | null
+}
+
+/** 核销行输入 */
+export interface ReceiptAllocationInput {
+  receivableId: number
+  amount: DecimalString
+}
+
+/** 确认回款载荷（本阶段要求全额核销） */
+export interface ReceiptCreateInput {
+  customerId: number
+  receiptDate: LocalDate
+  accountId: number
+  actualAmount: DecimalString
+  externalRef?: string | null
+  remark?: string | null
+  allocations: ReceiptAllocationInput[]
+  idempotencyKey: string
+}
+
+/** 核销预览载荷 */
+export interface AllocationPreviewInput {
+  customerId: number
+  actualAmount: DecimalString
+  allocations?: ReceiptAllocationInput[]
+}
+
+/** 核销预览结果（不落库） */
+export interface AllocationPreview {
+  allocations: ReceiptAllocationInput[]
+  totalAllocated: DecimalString
+  unallocated: DecimalString
+  errors: BusinessErrorView[]
+}
+
+/** 应收余额统计 */
+export interface ReceivableBalance {
+  outstanding: DecimalString
+  overdueOutstanding: DecimalString
+  confirmedTotal: DecimalString
+  asOf: LocalDate
+}
+
+/* -------------------------------- 应付单 -------------------------------- */
+
+/** 应付单（确认不扣减资金；已付/未付/状态为派生值） */
+export interface PayableRecord {
+  id: EntityId
+  payableNo: string
+  supplierId: EntityId
+  supplierName: string | null
+  bizDate: LocalDate
+  accountingMonth: string
+  dueDate: LocalDate | null
+  amount: DecimalString
+  paidAmount: DecimalString
+  outstandingAmount: DecimalString
+  paymentStatus: PayablePaymentStatus
+  content: string
+  remark: string | null
+  fundedExpenseId: EntityId | null
+  status: RecordStatus
+  voidRecordId: EntityId | null
+  voidNo: string | null
+  voidDate: LocalDate | null
+  createdAt: string | null
+  createdBy: string | null
+}
+
+/** 应付单新建载荷 */
+export interface PayableCreateInput {
+  supplierId: number
+  bizDate: LocalDate
+  accountingMonth?: string | null
+  dueDate?: LocalDate | null
+  amount: DecimalString
+  content: string
+  remark?: string | null
+  fundedExpenseId?: number | null
+  idempotencyKey: string
+}
+
+/* -------------------------------- 付款单 -------------------------------- */
+
+/** 付款核销明细（付款单 ↔ 应付单） */
+export interface PaymentAllocationRecord {
+  id: EntityId
+  paymentId: EntityId
+  paymentNo: string | null
+  payableId: EntityId
+  payableNo: string | null
+  allocationAmount: DecimalString
+  status: AllocationStatus
+  allocatedAt: string | null
+}
+
+/** 付款单（一笔付款只对应一条资金流出流水） */
+export interface PaymentRecord {
+  id: EntityId
+  paymentNo: string
+  supplierId: EntityId
+  supplierName: string | null
+  paymentDate: LocalDate
+  accountId: EntityId
+  accountName: string | null
+  amount: DecimalString
+  fundTransactionId: EntityId | null
+  fundTransactionNo: string | null
+  externalRef: string | null
+  remark: string | null
+  status: RecordStatus
+  voidRecordId: EntityId | null
+  voidNo: string | null
+  voidDate: LocalDate | null
+  allocations: PaymentAllocationRecord[]
+  createdAt: string | null
+  createdBy: string | null
+}
+
+/** 付款核销行输入 */
+export interface PayableAllocationInput {
+  payableId: number
+  amount: DecimalString
+}
+
+/** 确认付款载荷（本阶段要求全额核销） */
+export interface PaymentCreateInput {
+  supplierId: number
+  paymentDate: LocalDate
+  accountId: number
+  amount: DecimalString
+  externalRef?: string | null
+  remark?: string | null
+  allocations: PayableAllocationInput[]
+  idempotencyKey: string
+}
+
+/** 付款核销预览结果（不落库） */
+export interface PayableAllocationPreview {
+  allocations: PayableAllocationInput[]
+  totalAllocated: DecimalString
+  unallocated: DecimalString
+  errors: BusinessErrorView[]
+}
+
+/** 应付余额统计 */
+export interface PayableBalance {
+  outstanding: DecimalString
+  overdueOutstanding: DecimalString
+  asOf: LocalDate
 }

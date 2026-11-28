@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 
-import { DESIGN_SYSTEM_BUILD, PROTOTYPE_BUILD, isDesignSystemMode, isPrototypeMode } from '@/app/envAllowlist'
+import { DESIGN_SYSTEM_BUILD, isDesignSystemMode } from '@/app/envAllowlist'
 import { resolveLoginRedirect } from '@/features/auth/loginModel'
 import MainLayout from '@/layouts/MainLayout.vue'
 import PlaceholderView from '@/views/PlaceholderView.vue'
@@ -11,22 +11,12 @@ const placeholder = (title: string, phase: string): { component: typeof Placehol
 })
 
 /**
- * 原型/演示页面构建期隔离（生产等非允许清单产物不携带演示业务模块）。
+ * Design System 展示页构建期隔离（生产等非允许清单产物不携带）。
+ * 隔离开关语义唯一来源：`@/app/envAllowlist`（仅 `development` / `test` 启用）。
  *
- * 隔离开关语义唯一来源：`@/app/envAllowlist`（仅 `development` / `test` 启用演示与
- * Design System；production / staging / uat / 自定义未知 mode 一律默认关闭）。
- * 构建期死分支消除：动态导入三元的测试用 `PROTOTYPE_BUILD` / `DESIGN_SYSTEM_BUILD`
- * （静态可折叠常量）；产物层由 scripts/verify-isolation.mjs 扫描验证。
- * 运行期守卫：`beforeEnter` 用纯函数 `isPrototypeMode` / `isDesignSystemMode`。
- *
- * Phase 1 正式业务页面（登录/经营概览/资金流水/资金账户/主数据/业务录入）为
- * **真实 API 页面**，在全部构建产物中可用（不属于演示模块，不做构建期隔离）；
- * 演示业务（应收/加工费回款原型）仍保持 prototype 允许清单隔离。
+ * Phase 2 起应收、回款、应付、付款、供应商均为**真实业务页面**（真实 API + MySQL），
+ * 在全部构建产物中可用，不再属于演示模块，因此不做构建期隔离与运行期守卫。
  */
-function prototypeGuard(): boolean {
-  return isPrototypeMode(import.meta.env.MODE)
-}
-
 function designSystemGuard(): boolean {
   return isDesignSystemMode(import.meta.env.MODE)
 }
@@ -77,37 +67,29 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '转账录入', requiresAuth: true },
       },
 
-      // 演示业务（原型，仅 development / test 构建可见；不进入生产产物）
+      // 业务管理（真实 API：应收 / 回款 / 应付 / 付款）
       {
         path: 'business/receivables',
-        component:
-          PROTOTYPE_BUILD
-            ? () => import('@/features/receivables/ReceivablesView.vue').then((m) => m.default)
-            : () => Promise.resolve(PlaceholderView),
-        meta: { title: '应收账款', prototype: true },
-        beforeEnter: () => prototypeGuard() || { path: '/workbench' },
+        component: () => import('@/features/receivables/ReceivablesView.vue').then((m) => m.default),
+        meta: { title: '应收账款', requiresAuth: true },
       },
       {
         path: 'business/receivables/:id',
-        component:
-          PROTOTYPE_BUILD
-            ? () => import('@/features/receivables/ReceivableDetailView.vue').then((m) => m.default)
-            : () => Promise.resolve(PlaceholderView),
-        meta: { title: '应收单详情', prototype: true },
-        beforeEnter: () => prototypeGuard() || { path: '/workbench' },
+        component: () => import('@/features/receivables/ReceivableDetailView.vue').then((m) => m.default),
+        meta: { title: '应收单详情', requiresAuth: true },
       },
       {
         path: 'business/processing-fee',
-        component:
-          PROTOTYPE_BUILD
-            ? () => import('@/features/receipts/ReceiptsView.vue').then((m) => m.default)
-            : () => Promise.resolve(PlaceholderView),
-        meta: { title: '加工费回款', prototype: true },
-        beforeEnter: () => prototypeGuard() || { path: '/workbench' },
+        component: () => import('@/features/receipts/ReceiptsView.vue').then((m) => m.default),
+        meta: { title: '加工费回款', requiresAuth: true },
+      },
+      {
+        path: 'business/payables',
+        component: () => import('@/features/payables/PayablesView.vue').then((m) => m.default),
+        meta: { title: '应付账款', requiresAuth: true },
       },
 
       { path: 'business/expenses', ...placeholder('费用管理', 'Phase 1') },
-      { path: 'business/payables', ...placeholder('应付账款', 'Phase 2') },
       { path: 'business/payroll', ...placeholder('工资管理', 'Phase 1') },
       { path: 'business/shareholder', ...placeholder('股东往来', 'Phase 2') },
       { path: 'business/fixed-assets', ...placeholder('固定资产', 'Phase 4') },
@@ -125,7 +107,11 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/features/masterdata/ShareholdersView.vue').then((m) => m.default),
         meta: { title: '股东管理', requiresAuth: true },
       },
-      { path: 'masterdata/suppliers', ...placeholder('供应商管理', 'Phase 1') },
+      {
+        path: 'masterdata/suppliers',
+        component: () => import('@/features/masterdata/SuppliersView.vue').then((m) => m.default),
+        meta: { title: '供应商管理', requiresAuth: true },
+      },
 
       { path: 'system/settings', ...placeholder('系统设置', 'Phase 1') },
 

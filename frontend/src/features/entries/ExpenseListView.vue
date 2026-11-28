@@ -18,7 +18,7 @@ import SearchInput from '@/components/shared/SearchInput.vue'
 import Button from '@/components/ui/button/Button.vue'
 import { DateRangeInput } from '@/components/ui/date'
 import Select from '@/components/ui/select/Select.vue'
-import { masterdataApi, treasuryApi, type ExpenseRecord, type FundAccount } from '@/services/api'
+import { masterdataApi, treasuryApi, EXPENSE_CATEGORY_OPTIONS, type ExpenseRecord, type FundAccount } from '@/services/api'
 import { buildExpenseColumns, type ExpenseDisplayRow } from './entryColumns'
 import { accountOptions, toExpenseInput, validateExpenseForm } from './entryModel'
 
@@ -28,13 +28,33 @@ const adapter: EntryPageAdapter<ExpenseRecord> = {
   create: (values) => treasuryApi.createExpense(toExpenseInput(values)),
   voidRecord: (id, voidDate, reason) => treasuryApi.voidExpense(id, voidDate, reason),
   validate: validateExpenseForm,
-  emptyForm: () => ({ category: '', accountId: '', amount: '', bizDate: '', counterparty: '', remark: '' }),
+  emptyForm: () => ({
+    category: '',
+    accountId: '',
+    content: '',
+    amount: '',
+    bizDate: '',
+    counterparty: '',
+    employeeName: '',
+    salaryMonth: '',
+    remark: '',
+  }),
   recordNo: (row) => row.docNo,
   isVoided: (row) => row.status === 'VOIDED',
   recordId: (row) => row.id ?? row.docNo,
 }
 
-const page = useEntryPage(adapter, ['category', 'accountId', 'amount', 'bizDate', 'counterparty', 'remark'])
+const page = useEntryPage(adapter, [
+  'category',
+  'accountId',
+  'content',
+  'amount',
+  'bizDate',
+  'employeeName',
+  'salaryMonth',
+  'counterparty',
+  'remark',
+])
 
 onMounted(page.list.load)
 watch([page.keyword, page.dateFrom, page.dateTo, page.statusFilter], page.list.reload)
@@ -54,40 +74,47 @@ async function loadDictionaries(): Promise<void> {
 
 onMounted(loadDictionaries)
 
-const formFields = computed<FormFieldSchema[]>(() => [
-  {
-    key: 'category',
-    label: '支出分类',
-    type: 'select',
-    required: true,
-    placeholder: '请选择支出分类',
-    options: [
-      { label: '工资支出', value: 'SALARY' },
-      { label: '水电支出', value: 'UTILITIES' },
-      { label: '采购支出', value: 'PURCHASE' },
-      { label: '其他', value: 'OTHER' },
-    ],
-  },
-  {
-    key: 'accountId',
-    label: '付款账户',
-    type: 'select',
-    required: true,
-    placeholder: '请选择资金账户',
-    options: accountOptions(accounts.value),
-  },
-  { key: 'content', label: '支出内容', type: 'text', required: true, placeholder: '如：11月工资/采购原材料' },
-  { key: 'amount', label: '支出金额', type: 'amount', required: true },
-  {
-    key: 'bizDate',
-    label: '业务日期',
-    type: 'date',
-    required: true,
-    hint: '不得晚于当前业务日期',
-  },
-  { key: 'counterparty', label: '交易对手', type: 'text', placeholder: '选填' },
-  { key: 'remark', label: '备注', type: 'text', placeholder: '选填' },
-])
+const formFields = computed<FormFieldSchema[]>(() => {
+  const fields: FormFieldSchema[] = [
+    {
+      key: 'category',
+      label: '支出分类',
+      type: 'select',
+      required: true,
+      placeholder: '请选择支出分类',
+      options: EXPENSE_CATEGORY_OPTIONS.map((option) => ({ ...option })),
+    },
+    {
+      key: 'accountId',
+      label: '付款账户',
+      type: 'select',
+      required: true,
+      placeholder: '请选择资金账户',
+      options: accountOptions(accounts.value),
+    },
+    { key: 'content', label: '支出内容', type: 'text', required: true, placeholder: '如：11月工资/采购原材料' },
+    { key: 'amount', label: '支出金额', type: 'amount', required: true },
+    {
+      key: 'bizDate',
+      label: '业务日期',
+      type: 'date',
+      required: true,
+      hint: '不得晚于当前业务日期，且不得早于付款账户期初日期',
+    },
+  ]
+  // 工资支出必须登记员工与工资月份（后端强校验：employeeName + salaryMonth）
+  if (page.form.value.category === 'SALARY') {
+    fields.push(
+      { key: 'employeeName', label: '员工名称', type: 'text', required: true, placeholder: '如：张三' },
+      { key: 'salaryMonth', label: '工资月份', type: 'text', required: true, placeholder: 'YYYY-MM', hint: '不得晚于当前月份' },
+    )
+  }
+  fields.push(
+    { key: 'counterparty', label: '交易对手', type: 'text', placeholder: '选填' },
+    { key: 'remark', label: '备注', type: 'text', placeholder: '选填' },
+  )
+  return fields
+})
 
 // 展示行：字典名称解析为数据装配（字典晚到时展示行重建 → data 身份变化 → 表格重建）
 const displayRows = computed<ExpenseDisplayRow[]>(() => {

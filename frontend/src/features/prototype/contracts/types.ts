@@ -262,8 +262,8 @@ export interface CashFlowTrendPoint {
 
 /** 支出分类统计（实际支出按业务类型聚合） */
 export interface ExpenseCategoryStat {
-  /** 支出分类（SALARY / UTILITIES / PURCHASE / OTHER） */
-  category: TransactionType
+  /** 支出分类代码（展示层经 TRANSACTION_TYPE_LABELS 解析标签，未知值回退原值） */
+  category: string
   /** 分类支出合计（DECIMAL(18,2)） */
   amount: DecimalString
 }

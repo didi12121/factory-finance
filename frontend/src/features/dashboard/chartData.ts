@@ -159,7 +159,10 @@ export interface ExpenseChartData {
 
 export function buildExpenseData(breakdown: ExpenseCategoryStat[]): ExpenseChartData {
   return {
-    categories: breakdown.map((item) => TRANSACTION_TYPE_LABELS[item.category] ?? item.category),
+    categories: breakdown.map(
+      (item) =>
+        TRANSACTION_TYPE_LABELS[item.category as keyof typeof TRANSACTION_TYPE_LABELS] ?? item.category,
+    ),
     values: breakdown.map((item) => toChartNumber(item.amount)),
     formatted: breakdown.map((item) => format(item.amount)),
     hasData: breakdown.length > 0,

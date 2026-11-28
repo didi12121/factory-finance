@@ -53,7 +53,7 @@ export function validateEntryAmount(value: string): string {
   return ''
 }
 
-/** 业务日期校验：必填、YYYY-MM-DD、不得晚于当前业务日期 */
+/** 业务日期校验：不得晚于当前业务日期 */
 export function validateBizDate(value: string, today: string = todayLocalDate()): string {
   const text = value.trim()
   if (text === '') {
@@ -64,6 +64,21 @@ export function validateBizDate(value: string, today: string = todayLocalDate())
   }
   if (text > today) {
     return '业务日期不得晚于当前业务日期'
+  }
+  return ''
+}
+
+/** 年月校验（YYYY-MM，不得晚于当前月份） */
+export function validateMonth(value: string, label: string, today: string = todayLocalDate()): string {
+  const text = value.trim()
+  if (text === '') {
+    return `请选择${label}`
+  }
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(text)) {
+    return `${label}格式不正确（YYYY-MM）`
+  }
+  if (text > today.slice(0, 7)) {
+    return `${label}不得晚于当前月份`
   }
   return ''
 }
@@ -98,12 +113,25 @@ export function toContributionInput(values: EntryFormValues): ContributionInput 
     amount: normalizeAmount(values.amount ?? '') ?? '0',
     contributionDate: (values.bizDate ?? '').trim(),
     remark: (values.remark ?? '').trim() === '' ? null : (values.remark ?? '').trim(),
+    idempotencyKey: (values.idempotencyKey ?? '').trim(),
   }
 }
 
 /* ------------------------------- 支出载荷 ------------------------------- */
 
-const EXPENSE_CATEGORIES: ExpenseCategory[] = ['SALARY', 'UTILITIES', 'PURCHASE', 'OTHER']
+/** 支出分类（与后端 10 种分类一致；UTILITIES 已拆分为电费/水费/网络通讯费） */
+export const EXPENSE_CATEGORIES: ExpenseCategory[] = [
+  'PURCHASE',
+  'SALARY',
+  'ELECTRICITY',
+  'WATER',
+  'INTERNET',
+  'RENT',
+  'SUPPLIES',
+  'REPAIR',
+  'TRANSPORT',
+  'OTHER',
+]
 
 export function validateExpenseForm(values: EntryFormValues): Record<string, string> {
   const errors: Record<string, string> = {}
@@ -113,6 +141,9 @@ export function validateExpenseForm(values: EntryFormValues): Record<string, str
   if (requireText(values.accountId ?? '', '资金账户', 64) !== '') {
     errors.accountId = '请选择付款账户'
   }
+  if (requireText(values.content ?? '', '支出内容', 255) !== '') {
+    errors.content = '请输入支出内容'
+  }
   const amountError = validateEntryAmount(values.amount ?? '')
   if (amountError !== '') {
     errors.amount = amountError
@@ -121,18 +152,41 @@ export function validateExpenseForm(values: EntryFormValues): Record<string, str
   if (dateError !== '') {
     errors.bizDate = dateError
   }
+  if (values.category === 'SALARY') {
+    if (requireText(values.employeeName ?? '', '员工名称', 64) !== '') {
+      errors.employeeName = '工资支出必须填写员工名称'
+    }
+    const salaryMonthError = validateMonth(values.salaryMonth ?? '', '工资月份')
+    if (salaryMonthError !== '') {
+      errors.salaryMonth = salaryMonthError
+    }
+  }
+  if ((values.bizMonth ?? '').trim() !== '') {
+    const bizMonthError = validateMonth(values.bizMonth ?? '', '所属月份')
+    if (bizMonthError !== '') {
+      errors.bizMonth = bizMonthError
+    }
+  }
   return errors
 }
 
 export function toExpenseInput(values: EntryFormValues): ExpenseInput {
+  const trimOrNull = (value: string | undefined): string | null => {
+    const text = (value ?? '').trim()
+    return text === '' ? null : text
+  }
   return {
     category: values.category as ExpenseCategory,
     content: (values.content ?? '').trim(),
+    bizMonth: trimOrNull(values.bizMonth),
     payDate: (values.bizDate ?? '').trim(),
     accountId: Number(values.accountId ?? ''),
     amount: normalizeAmount(values.amount ?? '') ?? '0',
-    payee: (values.counterparty ?? '').trim() === '' ? null : (values.counterparty ?? '').trim(),
-    remark: (values.remark ?? '').trim() === '' ? null : (values.remark ?? '').trim(),
+    payee: trimOrNull(values.counterparty),
+    employeeName: values.category === 'SALARY' ? trimOrNull(values.employeeName) : trimOrNull(values.employeeName),
+    salaryMonth: trimOrNull(values.salaryMonth),
+    remark: trimOrNull(values.remark),
+    idempotencyKey: (values.idempotencyKey ?? '').trim(),
   }
 }
 
@@ -168,6 +222,7 @@ export function toTransferInput(values: EntryFormValues): TransferInput {
     toAccountId: Number(values.toAccountId ?? ''),
     amount: normalizeAmount(values.amount ?? '') ?? '0',
     remark: (values.remark ?? '').trim() === '' ? null : (values.remark ?? '').trim(),
+    idempotencyKey: (values.idempotencyKey ?? '').trim(),
   }
 }
 

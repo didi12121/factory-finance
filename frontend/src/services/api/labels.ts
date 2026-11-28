@@ -39,6 +39,12 @@ export const FUND_ACCOUNT_TYPE_LABELS: Record<FundAccountType, string> = {
 
 /** 业务交易类型标签（业务性质 ≠ 会计收入概念） */
 export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
+  RECEIPT: '加工费回款',
+  PAYMENT: '应付付款',
+  CONTRIBUTION: '股东出资',
+  EXPENSE: '日常支出',
+  TRANSFER: '内部转账',
+  VOID: '撤销更正',
   PROCESSING_FEE_RECEIPT: '加工费回款',
   SHAREHOLDER_CONTRIBUTION: '股东出资',
   SALARY: '工资支出',
@@ -48,13 +54,33 @@ export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
   OTHER: '其他',
 }
 
-/** 支出分类标签 */
+/** 支出分类标签（与后端 10 种分类一致） */
 export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
-  SALARY: '工资支出',
-  UTILITIES: '水电支出',
   PURCHASE: '采购支出',
+  SALARY: '工资支出',
+  ELECTRICITY: '电费',
+  WATER: '水费',
+  INTERNET: '网络通讯费',
+  RENT: '房租',
+  SUPPLIES: '辅料耗材',
+  REPAIR: '维修费',
+  TRANSPORT: '运输费',
   OTHER: '其他',
 }
+
+/** 支出分类可选项（表单下拉，顺序固定） */
+export const EXPENSE_CATEGORY_OPTIONS: { label: string; value: ExpenseCategory }[] = [
+  { label: EXPENSE_CATEGORY_LABELS.PURCHASE, value: 'PURCHASE' },
+  { label: EXPENSE_CATEGORY_LABELS.SALARY, value: 'SALARY' },
+  { label: EXPENSE_CATEGORY_LABELS.ELECTRICITY, value: 'ELECTRICITY' },
+  { label: EXPENSE_CATEGORY_LABELS.WATER, value: 'WATER' },
+  { label: EXPENSE_CATEGORY_LABELS.INTERNET, value: 'INTERNET' },
+  { label: EXPENSE_CATEGORY_LABELS.RENT, value: 'RENT' },
+  { label: EXPENSE_CATEGORY_LABELS.SUPPLIES, value: 'SUPPLIES' },
+  { label: EXPENSE_CATEGORY_LABELS.REPAIR, value: 'REPAIR' },
+  { label: EXPENSE_CATEGORY_LABELS.TRANSPORT, value: 'TRANSPORT' },
+  { label: EXPENSE_CATEGORY_LABELS.OTHER, value: 'OTHER' },
+]
 
 /** 业务单据状态标签 */
 export const RECORD_STATUS_LABELS: Record<RecordStatus, string> = {
@@ -85,7 +111,11 @@ export const SOURCE_DOC_TYPE_LABELS: Record<SourceDocType, string> = {
   CONTRIBUTION: '股东出资单',
   EXPENSE: '支出单',
   TRANSFER: '转账单',
-  RECEIPT: '回款单据',
+  RECEIPT: '收款单',
+  PAYMENT: '付款单',
+  VOID: '撤销更正',
+  RECEIVABLE: '应收单',
+  PAYABLE: '应付单',
   PAYROLL: '工资单',
   PURCHASE: '采购单',
   OTHER: '其他单据',

@@ -3,14 +3,14 @@
  * 登记回款（唯一回款登记 UI）：基本信息 + 多对多核销分配 + 实时汇总 + 提交确认。
  *
  * 红线：
- * - 数据只经 usePrototypeStore 读写（previewReceiptAllocation / autoAllocateReceipt /
- *   validateReceiptAllocation / confirmReceipt）；UI 校验不可替代 Store 校验；
+ * - 数据经 useBusinessStore 读写真实后端（previewReceiptAllocation / autoAllocateReceipt /
+ *   validateReceiptAllocation / confirmReceipt）；UI 校验不可替代后端校验；
  * - 金额控件一律 AmountInput（提交前 validate()），汇总与派生走 domain 纯方法
  *   （preview 结果由 domain/allocation 计算，比较用 compareAmounts）；
  * - autoAllocateReceipt 只出预览：建议写入行输入，确认前不落任何状态；
  * - 未分配 > 0 展示金额与 Phase 2 规则说明并禁止确认；
  * - 确认收款幂等：同一表单会话 idempotencyKey 稳定 + submitting 防双击，
- *   Store 幂等去重为最终防线。
+ *   后端请求幂等表唯一约束为最终防线。
  */
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
@@ -36,7 +36,6 @@ import ErrorState from '@/components/shared/ErrorState.vue'
 import FormField from '@/components/shared/FormField.vue'
 import LoadingState from '@/components/shared/LoadingState.vue'
 import {
-  DEMO_TODAY,
   RECEIVABLES_ROUTE_PATH,
   type AllocationPreview,
   type BusinessError,
@@ -46,8 +45,9 @@ import {
   type Receipt,
   type ReceiptAllocation,
 } from '@/features/prototype/contracts'
-import { isPrototypeBusinessError } from '@/features/prototype/repository/prototypeErrors'
-import { usePrototypeStore } from '@/features/prototype/stores/prototype'
+import { useBusinessStore } from '@/features/business/businessStore'
+import { toBusinessErrors } from '@/features/business/errorMapping'
+import { todayLocalDate } from '@/utils/localDate'
 import { sumAmounts } from '@/features/prototype/domain/amounts'
 import { compareAmounts } from '@/utils/decimal'
 import { BusinessDateInput } from '@/components/ui/date'
@@ -77,13 +77,14 @@ const emit = defineEmits<{
   confirmed: [receiptId: EntityId]
 }>()
 
-const store = usePrototypeStore()
+const store = useBusinessStore()
+const today = todayLocalDate()
 const toast = useToast()
 
 /* ------------------------------ 表单状态 ------------------------------ */
 
 const customerId = ref('')
-const receiptDate = ref<LocalDate>(DEMO_TODAY)
+const receiptDate = ref<LocalDate>(today)
 const accountId = ref('')
 const actualAmount = ref('')
 const externalRef = ref('')
@@ -215,9 +216,20 @@ async function refreshPreview(): Promise<void> {
     preview.value = null
     return
   }
-  const result = await store.previewReceiptAllocation(buildPreviewCommand(registrationDraft()))
-  if (generation === previewGeneration) {
-    preview.value = result
+  try {
+    const result = await store.previewReceiptAllocation(buildPreviewCommand(registrationDraft()))
+    if (generation === previewGeneration) {
+      preview.value = result
+    }
+  } catch (error) {
+    if (generation === previewGeneration) {
+      preview.value = {
+        allocations: [],
+        totalAllocated: '0.00',
+        unallocated: '0.00',
+        validationErrors: toBusinessErrors(error, '核销预览失败，请重试'),
+      }
+    }
   }
 }
 
@@ -354,24 +366,16 @@ async function onDialogConfirm(): Promise<void> {
   try {
     const receipt = await store.confirmReceipt(pendingCommand.value)
     const detail = await store.getReceiptById(receipt.id)
-    const transaction = store.fundTransactions.find((item) => item.id === receipt.fundTransactionId) ?? null
     result.value = {
       receipt,
       allocations: detail?.allocations ?? [],
-      transactionNo: transaction?.transactionNo ?? null,
+      transactionNo: store.transactionNoOfReceipt(receipt.id),
     }
     toast.success('回款已确认', `${receipt.receiptNo} 已登记，资金流入 1 笔`)
     emit('confirmed', receipt.id)
     resetForm()
   } catch (error) {
-    submitErrors.value = isPrototypeBusinessError(error)
-      ? error.errors
-      : [
-          {
-            code: 'INTERNAL_ERROR',
-            message: error instanceof Error ? error.message : '确认收款失败，请重试',
-          },
-        ]
+    submitErrors.value = toBusinessErrors(error, '确认收款失败，请重试')
   } finally {
     submitting.value = false
     pendingCommand.value = null
@@ -382,7 +386,7 @@ function resetForm(): void {
   actualAmount.value = ''
   externalRef.value = ''
   remark.value = ''
-  receiptDate.value = DEMO_TODAY
+  receiptDate.value = today
   targetReceivableId.value = null
   for (const key of Object.keys(amounts)) {
     amounts[key] = ''
@@ -509,7 +513,7 @@ void refreshPreview()
           <BusinessDateInput
             id="receipt-date"
             v-model="receiptDate"
-            :max="DEMO_TODAY"
+            :max="today"
             required
             data-testid="registration-date"
           />
@@ -540,7 +544,7 @@ void refreshPreview()
           <Input
             id="external-ref"
             v-model="externalRef"
-            placeholder="如 BANK-REF-…"
+            placeholder="如银行流水号"
             data-testid="registration-external-ref"
           />
         </FormField>

@@ -13,6 +13,8 @@ import type {
   PageResult,
   Shareholder,
   ShareholderInput,
+  Supplier,
+  SupplierInput,
 } from './types'
 
 /** 主数据列表查询（分页 + 关键字 + 启停用状态） */
@@ -62,6 +64,20 @@ export function createShareholder(input: ShareholderInput): Promise<Shareholder>
 
 export function updateShareholder(id: string, input: ShareholderInput): Promise<Shareholder> {
   return put<Shareholder>(`/masterdata/shareholders/${id}`, input)
+}
+
+/* -------------------------------- 供应商 ------------------------------- */
+
+export function listSuppliers(query: MasterdataListQuery): Promise<PageResult<Supplier>> {
+  return get<PageResult<Supplier>>('/masterdata/suppliers', masterdataQueryParams(query))
+}
+
+export function createSupplier(input: SupplierInput): Promise<Supplier> {
+  return post<Supplier>('/masterdata/suppliers', input)
+}
+
+export function updateSupplier(id: string, input: SupplierInput): Promise<Supplier> {
+  return put<Supplier>(`/masterdata/suppliers/${id}`, input)
 }
 
 /* ------------------------------ 资金账户 ------------------------------ */

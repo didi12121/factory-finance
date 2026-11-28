@@ -8,6 +8,7 @@ import { computed, ref, type Ref } from 'vue'
 
 import { useToast } from '@/components/ui/toast/useToast'
 import { usePagedList, type PagedListState } from '@/composables/usePagedList'
+import { newIdempotencyKey } from '@/utils/idempotency'
 import { todayLocalDate } from '@/utils/localDate'
 import {
   apiErrorMessage,
@@ -109,7 +110,8 @@ export function useEntryPage<TRow>(adapter: EntryPageAdapter<TRow>, formFieldKey
   const submitting = ref(false)
 
   function openCreate(): void {
-    form.value = adapter.emptyForm()
+    // 每次独立业务操作生成稳定幂等键：同一表单的失败重试复用同一键（后端唯一约束防重复记账）
+    form.value = { ...adapter.emptyForm(), idempotencyKey: newIdempotencyKey() }
     formErrors.value = {}
     dialogOpen.value = true
   }

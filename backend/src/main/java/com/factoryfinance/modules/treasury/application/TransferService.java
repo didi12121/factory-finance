@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.factoryfinance.common.api.PageResult;
 import com.factoryfinance.common.exception.BusinessException;
+import com.factoryfinance.infrastructure.idempotency.IdempotencyGuard;
 import com.factoryfinance.infrastructure.time.BusinessTime;
 import com.factoryfinance.modules.treasury.api.dto.CreateTransferRequest;
 import com.factoryfinance.modules.treasury.api.dto.TransferView;
@@ -20,6 +21,7 @@ import com.factoryfinance.modules.treasury.infrastructure.mapper.FundTransaction
 import com.factoryfinance.modules.treasury.infrastructure.mapper.TransferMapper;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -27,17 +29,21 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 /**
  * 内部转账用例（事务边界）。
  * 一单两流水（from OUT + to IN，同 transfer_group_id=doc_no，同事务），整体净变化 0；
  * 账户间转账不产生收支。任一校验失败整单回滚，双方余额不变。
+ *
+ * <p>业务日期规则：转账必须同时校验转出与转入账户的期初日期（业务日期不得早于任一方期初日期）；
+ * 两账户按 id 升序加锁，避免并发互锁。</p>
  */
 @Service
 public class TransferService {
 
     private static final DateTimeFormatter ISO_DATETIME = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+    private static final String OPERATION = "TRANSFER_CREATE";
+    private static final int DOC_NO_RETRY_LIMIT = 3;
 
     private final TransferMapper transferMapper;
     private final FundTransactionMapper transactionMapper;
@@ -45,22 +51,25 @@ public class TransferService {
     private final DocNoGenerator docNoGenerator;
     private final VoidLookup voidLookup;
     private final BusinessTime businessTime;
+    private final IdempotencyGuard idempotency;
 
     public TransferService(TransferMapper transferMapper,
                            FundTransactionMapper transactionMapper,
                            AccountLookup accountLookup,
                            DocNoGenerator docNoGenerator,
                            VoidLookup voidLookup,
-                           BusinessTime businessTime) {
+                           BusinessTime businessTime,
+                           IdempotencyGuard idempotency) {
         this.transferMapper = transferMapper;
         this.transactionMapper = transactionMapper;
         this.accountLookup = accountLookup;
         this.docNoGenerator = docNoGenerator;
         this.voidLookup = voidLookup;
         this.businessTime = businessTime;
+        this.idempotency = idempotency;
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public TransferView create(CreateTransferRequest request) {
         LocalDate date = TreasuryValidation.parseDate(request.transferDate(), "transferDate");
         TreasuryValidation.requireNotAfterToday(businessTime, date, "transferDate");
@@ -73,41 +82,72 @@ public class TransferService {
         if (request.fromAccountId().equals(request.toAccountId())) {
             throw TreasuryValidation.invalid("toAccountId", "转出账户与转入账户不能相同");
         }
-        FundAccount from = accountLookup.requireEnabled(request.fromAccountId());
-        FundAccount to = accountLookup.requireEnabled(request.toAccountId());
+
+        String idemKey = idempotency.requireKey(request.idempotencyKey());
+        String fingerprint = idempotency.fingerprint(TxnType.TRANSFER.code(), date.toString(),
+                String.valueOf(request.fromAccountId()), String.valueOf(request.toAccountId()),
+                Money.str(amount), remark);
+        IdempotencyGuard.Reservation reservation = idempotency.reserve(OPERATION, idemKey, fingerprint);
+        if (reservation.existing()) {
+            return get(reservation.requireDocId());
+        }
+
+        // 同时校验两个账户（含期初日期），按 id 升序加锁避免并发互锁
+        long firstId = Math.min(request.fromAccountId(), request.toAccountId());
+        long secondId = Math.max(request.fromAccountId(), request.toAccountId());
+        FundAccount firstLocked = accountLookup.requireForFlow(firstId, date, "transferDate");
+        FundAccount secondLocked = accountLookup.requireForFlow(secondId, date, "transferDate");
+        FundAccount from = request.fromAccountId() == firstId ? firstLocked : secondLocked;
+        FundAccount to = request.toAccountId() == secondId ? secondLocked : firstLocked;
 
         String docNo = clientDocNo != null ? clientDocNo : docNoGenerator.next(DocSeries.TRANSFER, date);
-        for (int attempt = 0; attempt < 3; attempt++) {
+        Transfer doc = insertDocument(docNo, clientDocNo, date, from, to, amount, remark);
+
+        insertFlow(doc.getDocNo(), 1, doc, from, to, TxnDirection.OUT);
+        insertFlow(doc.getDocNo(), 2, doc, to, from, TxnDirection.IN);
+
+        idempotency.bind(reservation, TxnType.TRANSFER.code(), doc.getId());
+        return toView(doc, from.getName(), to.getName(), null);
+    }
+
+    /** 按主键读取转账单视图（幂等返回与详情查询共用） */
+    public TransferView get(long id) {
+        Transfer doc = transferMapper.selectById(id);
+        if (doc == null) {
+            throw BusinessException.notFound("转账单");
+        }
+        Map<Long, String> accountNames = accountLookup.names(
+                List.of(doc.getFromAccountId(), doc.getToAccountId()));
+        Map<Long, VoidRecord> voids = voidLookup.byTarget(TxnType.TRANSFER.code(), List.of(doc.getId()));
+        return toView(doc, accountNames.get(doc.getFromAccountId()),
+                accountNames.get(doc.getToAccountId()), voids.get(doc.getId()));
+    }
+
+    private Transfer insertDocument(String initialDocNo, String clientDocNo, LocalDate date,
+                                    FundAccount from, FundAccount to, BigDecimal amount, String remark) {
+        String docNo = initialDocNo;
+        for (int attempt = 0; ; attempt++) {
+            Transfer doc = new Transfer();
+            doc.setDocNo(docNo);
+            doc.setTransferDate(date);
+            doc.setFromAccountId(from.getId());
+            doc.setToAccountId(to.getId());
+            doc.setAmount(amount);
+            doc.setRemark(remark);
+            doc.setStatus(DocStatus.CONFIRMED.code());
             try {
-                Transfer doc = new Transfer();
-                doc.setDocNo(docNo);
-                doc.setTransferDate(date);
-                doc.setFromAccountId(from.getId());
-                doc.setToAccountId(to.getId());
-                doc.setAmount(amount);
-                doc.setRemark(remark);
-                doc.setStatus(DocStatus.CONFIRMED.code());
                 transferMapper.insert(doc);
-
-                insertFlow(docNo, 1, doc, from, to, TxnDirection.OUT);
-                insertFlow(docNo, 2, doc, to, from, TxnDirection.IN);
-
-                return toView(doc, from.getName(), to.getName(), null);
+                return doc;
             } catch (DuplicateKeyException duplicate) {
                 if (clientDocNo != null) {
                     throw BusinessException.conflict("单据编号已存在，请勿重复提交：" + clientDocNo);
                 }
-                Transfer existing = transferMapper.selectByDocNoForUpdate(docNo);
-                if (existing == null) {
-                    throw BusinessException.conflict("提交冲突：资金流水已存在，请勿重复提交");
-                }
-                if (sameDocument(existing, date, from.getId(), to.getId(), amount, remark)) {
-                    throw BusinessException.conflict("重复提交：相同转账单已存在（" + docNo + "）");
+                if (attempt >= DOC_NO_RETRY_LIMIT - 1) {
+                    throw BusinessException.conflict("单据编号并发冲突，请稍后重试");
                 }
                 docNo = docNoGenerator.nextForUpdate(DocSeries.TRANSFER, date);
             }
         }
-        throw BusinessException.conflict("单据编号并发冲突，请稍后重试");
     }
 
     private void insertFlow(String docNo, int index, Transfer doc, FundAccount account,
@@ -187,15 +227,6 @@ public class TransferService {
                 voidRecord == null ? null : voidRecord.getVoidDate().toString(),
                 doc.getCreatedAt() == null ? null : ISO_DATETIME.format(doc.getCreatedAt()),
                 doc.getCreatedBy());
-    }
-
-    private static boolean sameDocument(Transfer existing, LocalDate date, Long fromId, Long toId,
-                                        BigDecimal amount, String remark) {
-        return Objects.equals(existing.getTransferDate(), date)
-                && Objects.equals(existing.getFromAccountId(), fromId)
-                && Objects.equals(existing.getToAccountId(), toId)
-                && existing.getAmount() != null && existing.getAmount().compareTo(amount) == 0
-                && Objects.equals(existing.getRemark(), remark);
     }
 
     private static DocStatus parseStatus(String status) {

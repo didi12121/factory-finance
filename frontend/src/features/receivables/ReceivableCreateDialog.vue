@@ -3,7 +3,7 @@
  * 新建应收单 Dialog —— Agent F（P02-F）。
  *
  * 红线：
- * - 提交只调用 `usePrototypeStore.createReceivable`（唯一写入口）：
+ * - 提交只调用 `useBusinessStore.createReceivable`（唯一写入口）：
  *   **不增加现金、不建收款单/流水、不自动结清**，成功后列表与指标经 store 响应式即时更新；
  * - 提交前调用 AmountInput `validate()`（UI 校验），store 业务校验为最终防线
  *   （客户/月份/日期/金额>0/唯一编号），BusinessError 的 message/fieldErrors 回显到表单；
@@ -22,14 +22,18 @@ import AmountInput from '@/components/finance/AmountInput.vue'
 import FormField from '@/components/shared/FormField.vue'
 import type { BusinessError, CreateReceivableCommand } from '@/features/prototype/contracts'
 import { isValidAccountingMonth, isValidLocalDate } from '@/features/prototype/domain/dateRules'
-import { isPrototypeBusinessError } from '@/features/prototype/repository/prototypeErrors'
-import { usePrototypeStore } from '@/features/prototype/stores/prototype'
+import { useBusinessStore } from '@/features/business/businessStore'
+import { toBusinessErrors } from '@/features/business/errorMapping'
+import { newIdempotencyKey } from '@/utils/idempotency'
 import { compareAmounts } from '@/utils/decimal'
 
 const props = defineProps<{ open: boolean }>()
 const emit = defineEmits<{ 'update:open': [value: boolean] }>()
 
-const store = usePrototypeStore()
+const store = useBusinessStore()
+
+/** 请求幂等键：同一表单会话稳定，失败重试复用同一键（后端唯一约束防重复建单） */
+const idempotencyKey = ref(newIdempotencyKey('ar'))
 const toast = useToast()
 
 /* ---------------------------- 表单状态 ---------------------------- */
@@ -67,6 +71,7 @@ function resetForm(): void {
   amountExternalError.value = ''
   fieldErrors.value = {}
   formError.value = ''
+  idempotencyKey.value = newIdempotencyKey('ar')
   amountInputRef.value?.reset()
 }
 
@@ -119,7 +124,8 @@ async function onSubmit(): Promise<void> {
     return
   }
 
-  const command: CreateReceivableCommand = {
+  const command: CreateReceivableCommand & { idempotencyKey: string } = {
+    idempotencyKey: idempotencyKey.value,
     customerId: customerId.value,
     accountingMonth: accountingMonth.value,
     statementDate: statementDate.value,
@@ -135,11 +141,7 @@ async function onSubmit(): Promise<void> {
     resetForm()
     emit('update:open', false)
   } catch (error) {
-    if (isPrototypeBusinessError(error)) {
-      applyBusinessErrors(error.errors)
-    } else {
-      formError.value = '创建失败，请稍后重试'
-    }
+    applyBusinessErrors(toBusinessErrors(error, '创建失败，请稍后重试'))
   } finally {
     submitting.value = false
   }

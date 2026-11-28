@@ -81,6 +81,7 @@ public class VoidService {
             throw BusinessException.conflict("出资单已撤销，禁止重复撤销：" + doc.getDocNo());
         }
         VoidContext context = prepare(request, TxnType.CONTRIBUTION, doc.getId(), doc.getDocNo());
+        TreasuryValidation.requireVoidNotBeforeBusiness(context.voidDate(), doc.getContributionDate());
         List<FundTransaction> originals = originalFlows(TxnType.CONTRIBUTION, doc.getId());
         VoidRecord record = createRecordAndReversals(context, doc.getDocNo(), originals, null);
 
@@ -103,6 +104,7 @@ public class VoidService {
             throw BusinessException.conflict("支出单已撤销，禁止重复撤销：" + doc.getDocNo());
         }
         VoidContext context = prepare(request, TxnType.EXPENSE, doc.getId(), doc.getDocNo());
+        TreasuryValidation.requireVoidNotBeforeBusiness(context.voidDate(), doc.getPayDate());
         List<FundTransaction> originals = originalFlows(TxnType.EXPENSE, doc.getId());
         VoidRecord record = createRecordAndReversals(context, doc.getDocNo(), originals, null);
 
@@ -125,6 +127,7 @@ public class VoidService {
             throw BusinessException.conflict("转账单已撤销，禁止重复撤销：" + doc.getDocNo());
         }
         VoidContext context = prepare(request, TxnType.TRANSFER, doc.getId(), doc.getDocNo());
+        TreasuryValidation.requireVoidNotBeforeBusiness(context.voidDate(), doc.getTransferDate());
         List<FundTransaction> originals = originalFlows(TxnType.TRANSFER, doc.getId());
         // 转账反向流水成对出现，沿用原转账 group（同一 group 可追溯整条转账链路）
         VoidRecord record = createRecordAndReversals(context, doc.getDocNo(), originals, doc.getDocNo());
@@ -136,6 +139,55 @@ public class VoidService {
         transferMapper.updateById(update);
 
         return toView(record, doc.getDocNo(), context, originals);
+    }
+
+    /**
+     * 撤销资金类外部业务单据（加工费回款 / 应付付款）：
+     * 调用方已完成单据存在性、状态与「撤销日期不早于原业务日期」校验，
+     * 本方法负责撤销记录 + 反向流水（同事务），并返回撤销视图。
+     */
+    @Transactional
+    public VoidView voidExternalFundDocument(String targetDocType, long targetDocId, String targetDocNo,
+                                             LocalDate voidDate, String reason) {
+        TxnType type = TxnType.fromCode(targetDocType)
+                .orElseThrow(() -> BusinessException.conflict("不支持的资金单据类型：" + targetDocType));
+        TreasuryValidation.requireNotAfterToday(businessTime, voidDate, "voidDate");
+        String normalizedReason = TreasuryValidation.text(reason, "reason", 500, false);
+        VoidContext context = new VoidContext(type, targetDocId, targetDocNo, voidDate, normalizedReason,
+                docNoGenerator.nextVoidNo(voidDate));
+        List<FundTransaction> originals = originalFlows(type, targetDocId);
+        VoidRecord record = createRecordAndReversals(context, targetDocNo, originals, null);
+        return toView(record, targetDocNo, context, originals);
+    }
+
+    /**
+     * 撤销无资金流水的业务单据（应收单 / 应付单）：仅登记可追溯撤销记录，
+     * 不产生反向流水（确认应收/应付本身不产生资金流水）。
+     */
+    @Transactional
+    public VoidView registerVoidOnly(String targetDocType, long targetDocId, String targetDocNo,
+                                     LocalDate voidDate, String reason) {
+        if (targetDocType == null || targetDocType.isBlank() || targetDocType.length() > 32) {
+            throw BusinessException.conflict("单据类型不合法：" + targetDocType);
+        }
+        TreasuryValidation.requireNotAfterToday(businessTime, voidDate, "voidDate");
+        String normalizedReason = TreasuryValidation.text(reason, "reason", 500, false);
+        VoidRecord record = new VoidRecord();
+        record.setVoidNo(docNoGenerator.nextVoidNo(voidDate));
+        record.setTargetDocType(targetDocType);
+        record.setTargetDocId(targetDocId);
+        record.setVoidDate(voidDate);
+        record.setReason(normalizedReason);
+        record.setReverseTransactionId(null);
+        try {
+            voidRecordMapper.insert(record);
+        } catch (DuplicateKeyException duplicate) {
+            throw BusinessException.conflict("该单据已撤销，禁止重复撤销：" + targetDocNo);
+        }
+        return new VoidView(record.getId(), record.getVoidNo(), targetDocType, targetDocId, targetDocNo,
+                voidDate.toString(), normalizedReason, List.of(), List.of(),
+                record.getCreatedAt() == null ? null : ISO_DATETIME.format(record.getCreatedAt()),
+                record.getCreatedBy());
     }
 
     private VoidContext prepare(VoidRequest request, TxnType targetType, long targetId, String targetDocNo) {

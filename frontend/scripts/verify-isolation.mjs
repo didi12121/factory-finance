@@ -44,19 +44,20 @@ const JSON_OUT = argValue('--json')
 const EXPECT_DEMO = args.includes('--expect-demo')
 
 // ---------------------------------------------------------------------------
-// 特征清单（Mock Store 业务实现 + 虚构 Fixture + Design System 展示页，25+）
+// 特征清单（Prototype Engine 内存实现 + 虚构 Fixture + Design System 展示页）
+//
+// 口径变更（Phase 2）：应收/回款/应付/付款/供应商已成为**真实 API 业务页面**，
+// 其业务方法名（createReceivable / confirmReceipt / 收款单 / 登记回款 等）属于
+// 生产业务词汇，不再列入演示特征；原型引擎（内存仓储）与虚构 fixture 仍必须隔离。
 // ---------------------------------------------------------------------------
 /** 演示/虚构特征（隔离断言要求 0 命中） */
 const FORBIDDEN_FEATURES = [
-  // A. Mock Store / Prototype Engine 业务实现（对象方法名/属性名/Store id 字面量）
-  { id: 'confirmReceipt', category: 'mock-store' },
-  { id: 'createReceivable', category: 'mock-store' },
-  { id: 'autoAllocateReceipt', category: 'mock-store' },
-  { id: 'previewReceiptAllocation', category: 'mock-store' },
+  // A. Prototype Engine 内存实现（方法名/Store id 字面量）
   { id: 'recomputeAccountBalance', category: 'mock-store' },
-  { id: 'getDashboardSummary', category: 'mock-store' },
-  { id: 'idempotencyKey', category: 'mock-store' },
-  { id: 'listReceipts', category: 'mock-store' },
+  { id: 'MemoryPrototypeRepository', category: 'mock-store' },
+  { id: 'createInitialPrototypeState', category: 'mock-store' },
+  { id: 'resetDemoData', category: 'mock-store' },
+  { id: 'usePrototypeStore', category: 'mock-store' },
   // B. 虚构 Fixture 数据特征
   { id: '示例客户', category: 'fixture' },
   { id: '示例供应商', category: 'fixture' },
@@ -75,8 +76,6 @@ const FORBIDDEN_FEATURES = [
   { id: 'BANK-REF-', category: 'fixture' },
   { id: 'cust-a', category: 'fixture' },
   { id: 'acct-bank', category: 'fixture' },
-  { id: '收款单', category: 'fixture' },
-  { id: '登记回款', category: 'fixture' },
   // C. Design System 展示页特征
   { id: 'Color Tokens', category: 'design-system' },
   { id: 'XS-2026-', category: 'design-system' },
@@ -90,7 +89,7 @@ const FORBIDDEN_FEATURES = [
 const SKELETON_FEATURES = ['工厂财务', '工作台', '经营概览', '资金管理', '业务管理', '应收账款', '该功能尚未实现']
 
 /** 演示 chunk 文件名禁用模式 */
-const FORBIDDEN_NAME_RE = /designsystem|dashboard|transactions|receivable|receipt|prototype|fixture|mockstore/i
+const FORBIDDEN_NAME_RE = /designsystem|prototype|fixture|mockstore/i
 
 // ---------------------------------------------------------------------------
 // 多形态编码

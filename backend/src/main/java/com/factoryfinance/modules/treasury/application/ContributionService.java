@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.factoryfinance.common.api.PageResult;
 import com.factoryfinance.common.exception.BusinessException;
+import com.factoryfinance.infrastructure.idempotency.IdempotencyGuard;
 import com.factoryfinance.infrastructure.time.BusinessTime;
 import com.factoryfinance.modules.treasury.api.dto.ContributionView;
 import com.factoryfinance.modules.treasury.api.dto.CreateContributionRequest;
@@ -21,6 +22,7 @@ import com.factoryfinance.modules.treasury.infrastructure.mapper.FundTransaction
 import com.factoryfinance.modules.treasury.infrastructure.mapper.ShareholderContributionMapper;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
@@ -28,17 +30,21 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 /**
  * 股东出资用例（事务边界）。
  * 确认出资 = 业务单据 + IN 资金流水同事务提交；计入资金流入、不计营业收入。
- * 幂等：单据编号唯一键 + uk_tst_fund_txn_source 数据库级拦截，DuplicateKeyException → 409。
+ *
+ * <p>幂等：请求幂等键（独立于业务单据编号）占位 → 业务写入 → 回填单据主键；
+ * 同键同参返回原单据，同键异参 409，不同键的相同业务内容正常提交。
+ * 单据编号唯一键仍作为编号冲突的最终防线。</p>
  */
 @Service
 public class ContributionService {
 
     private static final DateTimeFormatter ISO_DATETIME = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+    private static final String OPERATION = "CONTRIBUTION_CREATE";
+    private static final int DOC_NO_RETRY_LIMIT = 3;
 
     private final ShareholderContributionMapper contributionMapper;
     private final FundTransactionMapper transactionMapper;
@@ -47,6 +53,7 @@ public class ContributionService {
     private final DocNoGenerator docNoGenerator;
     private final VoidLookup voidLookup;
     private final BusinessTime businessTime;
+    private final IdempotencyGuard idempotency;
 
     public ContributionService(ShareholderContributionMapper contributionMapper,
                                FundTransactionMapper transactionMapper,
@@ -54,7 +61,8 @@ public class ContributionService {
                                AccountLookup accountLookup,
                                DocNoGenerator docNoGenerator,
                                VoidLookup voidLookup,
-                               BusinessTime businessTime) {
+                               BusinessTime businessTime,
+                               IdempotencyGuard idempotency) {
         this.contributionMapper = contributionMapper;
         this.transactionMapper = transactionMapper;
         this.shareholderDirectory = shareholderDirectory;
@@ -62,9 +70,10 @@ public class ContributionService {
         this.docNoGenerator = docNoGenerator;
         this.voidLookup = voidLookup;
         this.businessTime = businessTime;
+        this.idempotency = idempotency;
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     public ContributionView create(CreateContributionRequest request) {
         long shareholderId = request.shareholderId();
         ShareholderDirectory.ShareholderInfo shareholder = shareholderDirectory.findById(shareholderId)
@@ -77,51 +86,78 @@ public class ContributionService {
         BigDecimal amount = TreasuryValidation.parseAmount(request.amount(), "amount");
         String remark = TreasuryValidation.text(request.remark(), "remark", 500, false);
         String clientDocNo = TreasuryValidation.docNo(request.docNo(), DocSeries.CONTRIBUTION.prefix());
-        FundAccount account = accountLookup.requireEnabled(request.accountId());
 
+        String idemKey = idempotency.requireKey(request.idempotencyKey());
+        String fingerprint = idempotency.fingerprint(TxnType.CONTRIBUTION.code(),
+                String.valueOf(shareholderId), date.toString(), String.valueOf(request.accountId()),
+                Money.str(amount), remark);
+        IdempotencyGuard.Reservation reservation = idempotency.reserve(OPERATION, idemKey, fingerprint);
+        if (reservation.existing()) {
+            return get(reservation.requireDocId());
+        }
+
+        FundAccount account = accountLookup.requireForFlow(request.accountId(), date, "contributionDate");
         String docNo = clientDocNo != null ? clientDocNo : docNoGenerator.next(DocSeries.CONTRIBUTION, date);
-        for (int attempt = 0; attempt < 3; attempt++) {
+
+        ShareholderContribution doc = insertDocument(docNo, clientDocNo, shareholderId, date, account, amount, remark);
+
+        FundTransaction txn = new FundTransaction();
+        txn.setTransactionNo(docNoGenerator.transactionNo(doc.getDocNo(), 1));
+        txn.setTransactionType(TxnType.CONTRIBUTION.code());
+        txn.setTradeDate(date);
+        txn.setAccountId(account.getId());
+        txn.setDirection(TxnDirection.IN.code());
+        txn.setAmount(amount);
+        txn.setCounterparty(shareholder.name());
+        txn.setSourceDocType(TxnType.CONTRIBUTION.code());
+        txn.setSourceDocId(doc.getId());
+        txn.setStatus(TxnStatus.RECORDED.code());
+        txn.setRemark(remark);
+        transactionMapper.insert(txn);
+
+        idempotency.bind(reservation, TxnType.CONTRIBUTION.code(), doc.getId());
+        return toView(doc, account.getName(), shareholder.name(), null);
+    }
+
+    /** 按主键读取出资单视图（幂等返回与详情查询共用） */
+    public ContributionView get(long id) {
+        ShareholderContribution doc = contributionMapper.selectById(id);
+        if (doc == null) {
+            throw BusinessException.notFound("出资单");
+        }
+        Map<Long, String> accountNames = accountLookup.names(List.of(doc.getAccountId()));
+        Map<Long, String> shareholderNames = shareholderDirectory.names(List.of(doc.getShareholderId()));
+        Map<Long, VoidRecord> voids = voidLookup.byTarget(TxnType.CONTRIBUTION.code(), List.of(doc.getId()));
+        return toView(doc, accountNames.get(doc.getAccountId()),
+                shareholderNames.get(doc.getShareholderId()), voids.get(doc.getId()));
+    }
+
+    private ShareholderContribution insertDocument(String initialDocNo, String clientDocNo, long shareholderId,
+                                                   LocalDate date, FundAccount account, BigDecimal amount,
+                                                   String remark) {
+        String docNo = initialDocNo;
+        for (int attempt = 0; ; attempt++) {
+            ShareholderContribution doc = new ShareholderContribution();
+            doc.setDocNo(docNo);
+            doc.setShareholderId(shareholderId);
+            doc.setContributionDate(date);
+            doc.setAccountId(account.getId());
+            doc.setAmount(amount);
+            doc.setRemark(remark);
+            doc.setStatus(DocStatus.CONFIRMED.code());
             try {
-                ShareholderContribution doc = new ShareholderContribution();
-                doc.setDocNo(docNo);
-                doc.setShareholderId(shareholderId);
-                doc.setContributionDate(date);
-                doc.setAccountId(account.getId());
-                doc.setAmount(amount);
-                doc.setRemark(remark);
-                doc.setStatus(DocStatus.CONFIRMED.code());
                 contributionMapper.insert(doc);
-
-                FundTransaction txn = new FundTransaction();
-                txn.setTransactionNo(docNoGenerator.transactionNo(docNo, 1));
-                txn.setTransactionType(TxnType.CONTRIBUTION.code());
-                txn.setTradeDate(date);
-                txn.setAccountId(account.getId());
-                txn.setDirection(TxnDirection.IN.code());
-                txn.setAmount(amount);
-                txn.setCounterparty(shareholder.name());
-                txn.setSourceDocType(TxnType.CONTRIBUTION.code());
-                txn.setSourceDocId(doc.getId());
-                txn.setStatus(TxnStatus.RECORDED.code());
-                txn.setRemark(remark);
-                transactionMapper.insert(txn);
-
-                return toView(doc, account.getName(), shareholder.name(), null);
+                return doc;
             } catch (DuplicateKeyException duplicate) {
                 if (clientDocNo != null) {
                     throw BusinessException.conflict("单据编号已存在，请勿重复提交：" + clientDocNo);
                 }
-                ShareholderContribution existing = contributionMapper.selectByDocNoForUpdate(docNo);
-                if (existing == null) {
-                    throw BusinessException.conflict("提交冲突：资金流水已存在，请勿重复提交");
-                }
-                if (sameDocument(existing, shareholderId, date, account.getId(), amount, remark)) {
-                    throw BusinessException.conflict("重复提交：相同出资单已存在（" + docNo + "）");
+                if (attempt >= DOC_NO_RETRY_LIMIT - 1) {
+                    throw BusinessException.conflict("单据编号并发冲突，请稍后重试");
                 }
                 docNo = docNoGenerator.nextForUpdate(DocSeries.CONTRIBUTION, date);
             }
         }
-        throw BusinessException.conflict("单据编号并发冲突，请稍后重试");
     }
 
     public PageResult<ContributionView> list(Integer page, Integer size, String keyword,
@@ -189,15 +225,6 @@ public class ContributionService {
                 voidRecord == null ? null : voidRecord.getVoidDate().toString(),
                 doc.getCreatedAt() == null ? null : ISO_DATETIME.format(doc.getCreatedAt()),
                 doc.getCreatedBy());
-    }
-
-    private static boolean sameDocument(ShareholderContribution existing, long shareholderId, LocalDate date,
-                                        Long accountId, BigDecimal amount, String remark) {
-        return existing.getShareholderId() != null && existing.getShareholderId() == shareholderId
-                && Objects.equals(existing.getContributionDate(), date)
-                && Objects.equals(existing.getAccountId(), accountId)
-                && existing.getAmount() != null && existing.getAmount().compareTo(amount) == 0
-                && Objects.equals(existing.getRemark(), remark);
     }
 
     private static DocStatus parseStatus(String status) {

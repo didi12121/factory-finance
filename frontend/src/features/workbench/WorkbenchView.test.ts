@@ -107,8 +107,9 @@ describe('经营概览页（真实 API）', () => {
     await flushPromises()
 
     const today = todayLocalDate()
-    expect(mock.requests.length).toBe(2)
-    expect(mock.requests[1]?.params).toEqual({ from: addDays(today, -29), to: today })
+    const summaryRequests = mock.requests.filter((request) => request.url === '/treasury/dashboard/summary')
+    expect(summaryRequests.length).toBe(2)
+    expect(summaryRequests[1]?.params).toEqual({ from: addDays(today, -29), to: today })
 
     wrapper.unmount()
   })

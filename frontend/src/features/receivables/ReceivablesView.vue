@@ -3,7 +3,7 @@
  * 应收账款列表页 —— Agent F（P02-F）。
  *
  * 红线：
- * - 唯一数据源 `usePrototypeStore`：已收/未收/回款状态/逾期一律读取 store 派生值
+ * - 唯一数据源 `useBusinessStore`（真实后端 + MySQL）：已收/未收/回款状态/逾期一律读取 store 派生值
  *   （ReceivableSummary），页面禁止自算余额副本；金额聚合/比较走精确运算
  *   （sumAmounts / compareAmounts），禁止 Number/parseFloat；
  * - **逾期是独立属性**：与回款状态（未回款/部分回款/已结清）并列展示、独立筛选，
@@ -26,17 +26,13 @@ import FinancialMetric from '@/components/finance/FinancialMetric.vue'
 import FinancialStatus from '@/components/finance/FinancialStatus.vue'
 import MoneyText from '@/components/finance/MoneyText.vue'
 import DataTable from '@/components/shared/DataTable.vue'
-import DemoModeBanner from '@/components/shared/DemoModeBanner.vue'
 import ErrorState from '@/components/shared/ErrorState.vue'
 import FilterBar from '@/components/shared/FilterBar.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import SearchInput from '@/components/shared/SearchInput.vue'
 import { amountSortingFn } from '@/components/shared/tableSorting'
-import {
-  DEMO_TODAY,
-  buildProcessingFeeCreatePath,
-} from '@/features/prototype/contracts'
-import { usePrototypeStore } from '@/features/prototype/stores/prototype'
+import { buildProcessingFeeCreatePath } from '@/features/prototype/contracts'
+import { useBusinessStore } from '@/features/business/businessStore'
 import ReceivableCreateDialog from './ReceivableCreateDialog.vue'
 import {
   DEFAULT_CRITERIA,
@@ -56,7 +52,7 @@ import {
   type StatusFilter,
 } from './receivableList'
 
-const store = usePrototypeStore()
+const store = useBusinessStore()
 const router = useRouter()
 
 /* ---------------------------- 顶部财务指标（统计范围：全部应收单） ---------------------------- */
@@ -72,7 +68,7 @@ async function loadOptions(): Promise<void> {
   loading.value = true
   loadError.value = false
   try {
-    await store.listCustomers({ page: 1, size: 500 })
+    await store.load()
   } catch {
     loadError.value = true
   } finally {
@@ -306,11 +302,9 @@ const createOpen = ref(false)
 
 <template>
   <div class="flex flex-col gap-6" data-testid="receivables-page">
-    <DemoModeBanner />
-
-    <PageHeader title="应收账款" description="加工费对账应收登记与回款进度跟踪（虚构演示数据）">
+    <PageHeader title="应收账款" description="加工费对账应收登记与回款进度跟踪">
       <template #actions>
-        <Button variant="primary" data-testid="create-receivable-open" @click="createOpen = true">
+        <Button variant="primary" data-testid="create-receivable-open" :disabled="loading" @click="createOpen = true">
           新建应收单
         </Button>
       </template>
@@ -325,7 +319,7 @@ const createOpen = ref(false)
         <FinancialMetric label="逾期未收余额" :value="metrics.overdueOutstandingAmount" caption="已逾期且未收清合计" />
       </div>
       <p class="mt-4 text-caption text-text-muted">
-        统计范围：全部应收单（不受下方筛选影响）· 统计基准日：{{ DEMO_TODAY }}
+        统计范围：全部应收单（不受下方筛选影响）· 统计基准日：{{ store.today }}
       </p>
     </section>
 
@@ -371,7 +365,7 @@ const createOpen = ref(false)
           <ErrorState
             v-if="loadError"
             title="数据加载失败"
-            description="演示数据查询失败，请重试。"
+            description="应收数据加载失败，请重试。"
           >
             <template #actions>
               <Button variant="secondary" data-testid="reload-options" @click="loadOptions">重试</Button>

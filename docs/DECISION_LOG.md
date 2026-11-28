@@ -44,6 +44,17 @@
 | 2026-11-27 | app-shell.test.ts 纯新增断言（父级高亮/降噪）超出 Agent C 严格清单，集成层**裁定接受** | 测试断言与 C3 交付行为对应，零删弱 | 记录为所有权例外 | 已确认 |
 | 2026-11-27 | **截图证据策略**：历史阶段截图（phase-0.1.1/0.2）冻结保护，交付截图输出切至 `phase-0.3/`；Playwright 统一 locale=zh-CN / timezone=Asia/Shanghai | 已审核证据不被集成运行覆盖；视觉基线确定性 | 截图经统一 `scrollTop=0` 采集（sticky+fullPage 伪影修复，QA 三证复核成立） | 已确认 |
 
+| 2026-11-28 | **请求幂等独立于业务单据编号**：新增 `sys_request_idempotency(operation, idem_key)` 唯一表 + `IdempotencyGuard`（占位 → 业务写入 → 回填单据） | Phase 1 幂等依赖「单据编号冲突 / 业务内容相同」，不满足 Phase 2 §2.A（前端每次独立操作生成稳定键、重试复用、数据库唯一约束、同键异参拒绝、不同键相同内容允许） | 出资/支出/转账/应收/收款/应付/付款全部接入；`idempotencyKey` 成为创建接口必填字段（缺失 400）；单据编号唯一键仅作编号冲突最终防线 | 已确认 |
+| 2026-11-28 | 业务写事务使用 **`Isolation.READ_COMMITTED`**（create 方法级） | 幂等键冲突后的「读取已提交结果」在 REPEATABLE READ 快照下可能读不到并发事务刚提交的单据（表现为假 409/404）；唯一键冲突后改用当前读（FOR UPDATE）+ READ_COMMITTED 快照，语义与幂等契约一致 | 仅影响 7 个业务 create 方法的事务隔离级别；行锁仍显式（账户/应收/应付 FOR UPDATE），不引入丢失更新风险 | 已确认 |
+| 2026-11-28 | 撤销记录 `tst_void_record.reverse_transaction_id` 允许 NULL | 应收/应付撤销本身不产生资金流水（确认应收/应付不涉及资金），原结构 NOT NULL 只能覆盖资金类单据 | 应收/应付撤销复用同一撤销单序列（VN-YYYYMM-0001）与唯一目标约束；资金类撤销仍强制反向流水 | 已确认 |
+| 2026-11-28 | 资金账户写流水与期初修改**互斥**：写流水前 `SELECT ... FOR UPDATE` 账户行；业务日期不得早于账户期初日期（转账同时校验两个账户） | Phase 2 §2.D：禁止资金流水早于期初日期，并要求期初修改与流水写入并发一致 | `AccountLookup.requireForFlow` 统一入口；`AccountService.update` 锁定账户行后判断已有流水 | 已确认 |
+| 2026-11-28 | 回款/付款**本阶段强制全额核销**（Σ核销 = 实收/实付），未分配收款与预收款不实现 | 任务明确要求（Phase 2 §4/§5），避免超额回款计入收入或产生未分配资金 | 后端 `evaluateAllocations` 强制校验（400 明确提示）；前端展示未分配金额并禁用确认 | 已确认 |
+| 2026-11-28 | 应收/应付模块通过 **`treasury.api.FundFlowPort`** 写入资金流水与撤销冲销，通过 `masterdata.api.{Customer,Supplier}DirectoryApi` 解析主数据 | 架构红线：业务模块只依赖 `common`/`infrastructure`，模块间仅经 api 包协作，禁止跨模块直查表 | 新增 api 端口 + treasury 实现类；`VoidService` 增加外部单据撤销入口（`voidExternalFundDocument` / `registerVoidOnly`） | 已确认 |
+| 2026-11-28 | **避免重复扣减采购付款**：应付单可关联 Phase 1 采购支出单（`funded_expense_id`），关联后视为已付（SETTLED）并禁止再次付款 | Phase 2 §5 明确禁止同一笔采购付款重复扣减资金；业务内容相同不能作为幂等判据 | 付款核销校验返回 409（状态冲突），资金余额不变；应付视图已付金额含支出单金额 | 已确认 |
+| 2026-11-28 | 前端应收/回款页面**接入真实 API**（`useBusinessStore` 替换原型内存 Store），并新增应付/付款/供应商真实页面；应收/应付路由不再做 prototype 构建期隔离 | Phase 2 §3/§4/§5 要求复用现有原型页面并接入正式后端与 MySQL；原型仅保留为历史演示模块 | 路由放开 `/business/receivables`、`/business/processing-fee`、`/business/payables`、`/masterdata/suppliers`；`PROTOTYPE_BUILD` 门控移除 | 已确认 |
+| 2026-11-28 | **隔离扫描口径调整**：`verify-isolation.mjs` 演示特征收敛为原型引擎专有实现（`MemoryPrototypeRepository`/`usePrototypeStore` 等）与虚构 fixture；应收/回款/应付业务词汇（收款单、登记回款、createReceivable 等）与 `receivable/receipt` chunk 名不再视为演示特征 | 这些页面已成为生产业务页面，旧口径会把真实业务误判为演示泄漏（生产构建必然 FAIL） | 生产构建 `forbidden_total_hits=0`、chunk 名 0 命中、骨架对照 PASS；demo 特征（DEMO_TODAY、示例客户、虚构等）仍强制 0 命中 | 已确认 |
+| 2026-11-28 | 集成测试支持**外部 MySQL 替代 Testcontainers**：`-Dff.testcontainers=false` + `spring.datasource.*` | 受限开发机无 Docker 守护进程，需在同一套真实 MySQL 8 语义下验证（禁止 H2 替身） | `AbstractIntegrationTest` 容器 Bean 增加 `@ConditionalOnProperty`；CI 默认仍走 Testcontainers | 已确认 |
+| 2026-11-28 | 经营概览指标区改为**响应式网格**（`grid` + 断点列数），并新增「当前应收余额」「当前应付余额」真实指标 | 指标由 5 项增至 6 项后 1280/1440 视口出现页面级横向溢出（layout-audit 实测 266px/106px）；应收应付余额需读取真实数据库 | `buildWorkbenchMetrics(summary, balances)`；`/receivable/summary` + `/payable/summary` 提供真实派生值；两处余额取不到时标注「数据不可用」而非假数字 | 已确认 |
 ## 记录规则
 
 1. 新决策追加到表格末尾，日期使用 `YYYY-MM-DD`。

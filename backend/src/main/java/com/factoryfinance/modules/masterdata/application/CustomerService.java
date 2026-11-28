@@ -1,11 +1,13 @@
 package com.factoryfinance.modules.masterdata.application;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.factoryfinance.common.api.ErrorCode;
 import com.factoryfinance.common.api.PageQuery;
 import com.factoryfinance.common.api.PageResult;
 import com.factoryfinance.common.exception.BusinessException;
+import com.factoryfinance.modules.masterdata.api.CustomerDirectoryApi;
 import com.factoryfinance.modules.masterdata.api.dto.CustomerCreateRequest;
 import com.factoryfinance.modules.masterdata.api.dto.CustomerResponse;
 import com.factoryfinance.modules.masterdata.api.dto.CustomerUpdateRequest;
@@ -16,8 +18,11 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 客户应用服务（事务边界在 application 层）。
@@ -27,7 +32,7 @@ import java.util.Map;
  * 以停用保留（API_CONTRACT §10）。</p>
  */
 @Service
-public class CustomerService {
+public class CustomerService implements CustomerDirectoryApi {
 
     private static final int GENERATE_RETRY_LIMIT = 3;
 
@@ -134,6 +139,27 @@ public class CustomerService {
                     Map.of("fieldErrors", fieldErrors));
         }
         return normalized;
+    }
+
+    @Override
+    public Optional<CustomerInfo> findCustomer(long customerId) {
+        Customer customer = customerMapper.selectById(customerId);
+        if (customer == null) {
+            return Optional.empty();
+        }
+        return Optional.of(new CustomerInfo(customer.getId(), customer.getName(),
+                MasterdataConstants.STATUS_ENABLED.equals(customer.getStatus())));
+    }
+
+    @Override
+    public Map<Long, String> customerNames(Collection<Long> customerIds) {
+        Map<Long, String> result = new HashMap<>();
+        if (customerIds == null || customerIds.isEmpty()) {
+            return result;
+        }
+        customerMapper.selectList(new QueryWrapper<Customer>().in("id", customerIds))
+                .forEach(customer -> result.put(customer.getId(), customer.getName()));
+        return result;
     }
 
     private CustomerResponse toResponse(Customer customer) {

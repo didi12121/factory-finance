@@ -1,5 +1,7 @@
 import { expect, test, type Page } from '@playwright/test'
 
+import { createCustomer, today, uniqueSuffix } from './business-fixtures'
+
 /**
  * Phase 0.3 布局审计（真实浏览器）：
  *
@@ -11,10 +13,10 @@ import { expect, test, type Page } from '@playwright/test'
  */
 
 const PAGES = [
-  { path: '/workbench', ready: 'metric-fund-balance' },
+  { path: '/workbench', ready: 'metric-fundBalance' },
   { path: '/treasury/transactions', ready: 'transactions-table' },
   { path: '/business/receivables', ready: 'receivables-table' },
-  { path: '/business/processing-fee', ready: 'receipt-list-table' },
+  { path: '/business/processing-fee', ready: 'receipt-list' },
 ] as const
 
 const VIEWPORTS = [
@@ -96,7 +98,8 @@ test.describe('页面级横向溢出根因审计（禁用 overflow-x-clip 防护
 })
 
 test.describe('长金额渲染（大额应收单不破坏布局）', () => {
-  test('16 位整数金额在 390px 下完整可读且无横向溢出', async ({ page }) => {
+  test('16 位整数金额在 390px 下完整可读且无横向溢出', async ({ page, request }) => {
+    const customer = await createCustomer(request, `长金额客户-${uniqueSuffix()}`)
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto('/business/receivables')
     await expect(page.getByTestId('receivables-table')).toBeVisible()
@@ -104,14 +107,14 @@ test.describe('长金额渲染（大额应收单不破坏布局）', () => {
     await page.getByTestId('create-receivable-open').click()
     const dialog = page.getByRole('dialog')
     await dialog.getByLabel('客户', { exact: true }).click()
-    await page.getByRole('option', { name: '示例客户 A', exact: true }).click()
-    await dialog.getByLabel('所属月份', { exact: true }).fill('2026-12')
-    await dialog.getByLabel('对账日期').fill('2026-12-05')
+    await page.getByRole('option', { name: customer.name, exact: true }).click()
+    await dialog.getByLabel('所属月份', { exact: true }).fill(today().slice(0, 7))
+    await dialog.getByLabel('对账日期').fill(today())
     await dialog.locator('#create-amount').fill('9,999,999,999,999,999.99')
     await page.getByTestId('create-receivable-submit').click()
     await expect(dialog).toBeHidden()
 
-    await page.getByPlaceholder('搜索单据编号或客户…').fill('AR-2026-0025')
+    await page.getByPlaceholder('搜索单据编号或客户…').fill(customer.name)
     const row = page.getByTestId('receivables-table').locator('tbody tr').first()
     await expect(row).toContainText('9,999,999,999,999,999.99')
     expect(await horizontalOverflow(page)).toBeLessThanOrEqual(0)

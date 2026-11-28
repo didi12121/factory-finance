@@ -9,6 +9,7 @@ import com.factoryfinance.modules.treasury.infrastructure.mapper.FundAccountMapp
 import com.factoryfinance.modules.treasury.infrastructure.mapper.FundTransactionMapper;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -40,6 +41,30 @@ public class AccountLookup {
             throw TreasuryValidation.invalid("accountId", "资金账户已停用，禁止收付操作");
         }
         return account;
+    }
+
+    /**
+     * 资金流水写入前置校验（锁定账户行，串行化同一账户的期初修改与流水写入）：
+     * 账户存在且启用；业务日期不得早于账户期初日期。
+     */
+    public FundAccount requireForFlow(Long accountId, LocalDate businessDate, String dateField) {
+        if (accountId == null) {
+            throw TreasuryValidation.invalid("accountId", "资金账户 id 必填");
+        }
+        FundAccount account = accountMapper.selectByIdForUpdate(accountId);
+        if (account == null) {
+            throw BusinessException.notFound("资金账户");
+        }
+        if (!AccountStatus.ENABLED.code().equals(account.getStatus())) {
+            throw TreasuryValidation.invalid("accountId", "资金账户已停用，禁止收付操作");
+        }
+        TreasuryValidation.requireNotBeforeOpening(businessDate, account.getOpeningDate(), dateField);
+        return account;
+    }
+
+    /** 锁定账户行（并发下读取最新已提交行，期初修改与流水写入互斥） */
+    public FundAccount lock(Long accountId) {
+        return accountId == null ? null : accountMapper.selectByIdForUpdate(accountId);
     }
 
     /** 读取（可停用），不存在返回 null */

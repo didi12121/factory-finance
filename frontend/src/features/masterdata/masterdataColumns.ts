@@ -15,6 +15,7 @@ import {
   ENABLE_STATUS_LABELS,
   type Customer,
   type Shareholder,
+  type Supplier,
 } from '@/services/api'
 
 const TEXT_CELL = 'text-table text-text-primary'
@@ -126,6 +127,62 @@ export function buildCustomerColumns(
       cell: (info) => h('span', { class: 'tabular text-table text-text-primary' }, info.getValue()),
     },
     actionsColumn(ctx, '客户'),
+  ]
+}
+
+/** 供应商列表列定义（编号/名称/联系方式/状态；不提供删除，停用即保留） */
+export function buildSupplierColumns(
+  ctx: MasterdataColumnsContext<Supplier>,
+): ColumnDef<Supplier, string>[] {
+  return [
+    {
+      id: 'supplierNo',
+      accessorFn: (row) => row.supplierNo,
+      header: '供应商编号',
+      cell: (info) => h(DocumentNumber, { value: info.getValue() }),
+    },
+    {
+      id: 'name',
+      accessorFn: (row) => row.name,
+      header: '名称',
+      cell: (info) => h('span', { class: TEXT_CELL }, info.getValue()),
+    },
+    {
+      id: 'contact',
+      accessorFn: (row) => textCell(row.contact),
+      header: '联系人',
+      enableSorting: false,
+      cell: (info) =>
+        h('span', { class: info.getValue() === '' ? MUTED_CELL : TEXT_CELL }, info.getValue() === '' ? '—' : info.getValue()),
+    },
+    {
+      id: 'phone',
+      accessorFn: (row) => textCell(row.phone),
+      header: '电话',
+      enableSorting: false,
+      cell: (info) =>
+        h('span', { class: info.getValue() === '' ? MUTED_CELL : TEXT_CELL }, info.getValue() === '' ? '—' : info.getValue()),
+    },
+    {
+      id: 'remark',
+      accessorFn: (row) => textCell(row.remark),
+      header: '备注',
+      enableSorting: false,
+      cell: (info) =>
+        h('span', { class: info.getValue() === '' ? MUTED_CELL : TEXT_CELL }, info.getValue() === '' ? '—' : info.getValue()),
+    },
+    {
+      id: 'status',
+      accessorFn: (row) => row.status,
+      header: '状态',
+      enableSorting: false,
+      cell: (info) =>
+        h(FinancialStatus, {
+          status: ENABLE_STATUS_LABELS[info.row.original.status],
+          kind: ENABLE_STATUS_KINDS[info.row.original.status],
+        }),
+    },
+    actionsColumn(ctx, '供应商'),
   ]
 }
 

@@ -39,6 +39,8 @@ logs/
 
 # DSH 平台沙箱工件（非项目文件）
 .acl-recovery/
+# 本地临时运行时（便携 MySQL、构建临时目录等，非项目文件）
+.local/
 
 test-results-visual/
 frontend/visual/

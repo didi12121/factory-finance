@@ -1,21 +1,24 @@
 /**
- * 应收模块组件测试辅助（仅测试使用）—— Agent F（P02-F）。
+ * 业务页面组件测试辅助（仅测试使用）。
  *
  * 约定：真实挂载（@vue/test-utils + Pinia + vue-router memory 路由），
+ * 数据源为真实 API 层（axios mock 适配器注入，走完整拦截器链），
  * Dialog/Select 等 reka-ui 组件经 Portal 渲染到 document.body，
  * 因此统一 `attachTo: document.body` 并用 document 查询断言真实 DOM。
  */
 
 import { mount, type VueWrapper } from '@vue/test-utils'
-import { createPinia, setActivePinia, type Pinia } from 'pinia'
+import { createPinia, setActivePinia } from 'pinia'
 import { defineComponent, h, type Component } from 'vue'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 
-import { usePrototypeStore } from '../prototype/stores/prototype'
+import { installMockAdapter, type MockReply } from '@/services/api/testAdapter'
+import type { InternalAxiosRequestConfig } from 'axios'
+import type { CapturedRequest } from '@/services/api/testAdapter'
 import ReceivableDetailView from './ReceivableDetailView.vue'
 import ReceivablesView from './ReceivablesView.vue'
 
-/** 等待微任务/定时器队列清空（store 仓储为 Promise 契约） */
+/** 等待微任务/定时器队列清空（API 契约均为 Promise） */
 export function flushPromises(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0))
 }
@@ -29,7 +32,7 @@ export function createTestRouter(): Router {
       { path: '/business/receivables/:id', component: ReceivableDetailView },
       {
         path: '/business/processing-fee',
-        component: defineComponent({ render: () => h('div', '加工费回款（Agent G 页面）') }),
+        component: defineComponent({ render: () => h('div', '加工费回款页面') }),
       },
     ],
   })
@@ -38,32 +41,37 @@ export function createTestRouter(): Router {
 export interface MountedView {
   wrapper: VueWrapper
   router: Router
-  store: ReturnType<typeof usePrototypeStore>
-  pinia: Pinia
 }
 
 /** 挂载视图（真实 Pinia + 路由；attachTo body 以覆盖 Portal 内容） */
 export async function mountView(
   component: Component,
   route = '/business/receivables',
-  beforeMount?: (store: ReturnType<typeof usePrototypeStore>) => void,
 ): Promise<MountedView> {
   const pinia = createPinia()
   setActivePinia(pinia)
-  const store = usePrototypeStore()
-  beforeMount?.(store)
   const router = createTestRouter()
   await router.push(route)
   await router.isReady()
   const wrapper = mount(component, { global: { plugins: [router, pinia] }, attachTo: document.body })
   await flushPromises()
-  return { wrapper, router, store, pinia }
+  return { wrapper, router }
 }
 
 /** 清理挂载（卸载组件并清空 body，避免测试间 DOM 串扰） */
 export function cleanupMounted(mounted: MountedView): void {
   mounted.wrapper.unmount()
   document.body.innerHTML = ''
+}
+
+/**
+ * 注入 API mock（走真实 axios 拦截器链）；返回捕获的请求数组与恢复函数。
+ * handler 依据请求 URL/method 返回统一 ApiResponse 包装的响应。
+ */
+export function stubApi(
+  handler: (config: InternalAxiosRequestConfig, captured: CapturedRequest) => MockReply,
+): { requests: CapturedRequest[]; restore: () => void } {
+  return installMockAdapter(handler)
 }
 
 /* ---------------------------------- DOM 查询辅助 ---------------------------------- */

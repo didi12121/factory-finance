@@ -59,7 +59,7 @@ public abstract class TreasuryTestSupport extends AbstractIntegrationTest {
     }
 
     protected HttpResult post(String path, Object body) throws Exception {
-        return perform(MockMvcRequestBuilders.post(path), body, Map.of());
+        return perform(MockMvcRequestBuilders.post(path), withIdempotencyKey(body), Map.of());
     }
 
     protected HttpResult put(String path, Object body) throws Exception {
@@ -99,6 +99,25 @@ public abstract class TreasuryTestSupport extends AbstractIntegrationTest {
             }
         }
         return result;
+    }
+
+    /**
+     * 业务创建请求自动补幂等键（模拟前端每次独立操作生成的稳定键）；
+     * 需要显式控制幂等键的用例自行在 body 中传入。
+     */
+    private static Object withIdempotencyKey(Object body) {
+        if (body instanceof Map<?, ?> source && !source.containsKey("idempotencyKey")) {
+            Map<String, Object> copy = new LinkedHashMap<>();
+            source.forEach((key, value) -> copy.put(String.valueOf(key), value));
+            copy.put("idempotencyKey", newIdempotencyKey());
+            return copy;
+        }
+        return body;
+    }
+
+    /** 生成一个合法幂等键（8-96 位字母/数字/下划线/短横线） */
+    protected static String newIdempotencyKey() {
+        return "it-" + UUID.randomUUID();
     }
 
     /** 金额断言：十进制字符串按数值比较 */

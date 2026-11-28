@@ -53,7 +53,7 @@ export const navGroups: NavGroup[] = [
     label: '业务管理',
     items: [
       { label: '应收账款', path: '/business/receivables', icon: ReceiptText, implemented: true },
-      { label: '应付账款', path: '/business/payables', icon: ReceiptText, implemented: false },
+      { label: '应付账款', path: '/business/payables', icon: ReceiptText, implemented: true },
       { label: '加工费回款', path: '/business/processing-fee', icon: Calculator, implemented: true },
       { label: '费用管理', path: '/business/expenses', icon: Coins, implemented: false },
       { label: '工资管理', path: '/business/payroll', icon: Users, implemented: false },
@@ -73,7 +73,7 @@ export const navGroups: NavGroup[] = [
     items: [
       { label: '客户管理', path: '/masterdata/customers', icon: Users, implemented: true },
       { label: '股东管理', path: '/masterdata/shareholders', icon: HandCoins, implemented: true },
-      { label: '供应商管理', path: '/masterdata/suppliers', icon: Building2, implemented: false },
+      { label: '供应商管理', path: '/masterdata/suppliers', icon: Building2, implemented: true },
     ],
   },
   {

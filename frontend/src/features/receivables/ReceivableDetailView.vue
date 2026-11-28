@@ -3,7 +3,7 @@
  * 应收单详情页 —— Agent F（P02-F）。
  *
  * 红线：
- * - 唯一数据源 `usePrototypeStore`：应收/已收/未收/回款状态/逾期全部读取 store 派生值，
+ * - 唯一数据源 `useBusinessStore`（真实后端 + MySQL）：应收/已收/未收/回款状态/逾期全部读取后端派生值，
  *   页面禁止自算余额副本；金额展示走 MoneyText（formatAmount）；
  * - 回款记录**区分「收款单实际总额」与「本单核销金额」**：一笔收款可能核销多张应收单，
  *   禁止把收款单实际总额当作本单已收展示；本单已收 = Σ 本单核销金额；
@@ -12,7 +12,7 @@
  * - 无效 ID：明确「未找到」状态 + 返回列表入口，不空白、不伪造单据。
  */
 
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import Button from '@/components/ui/button/Button.vue'
@@ -27,14 +27,13 @@ import FinancialMetric from '@/components/finance/FinancialMetric.vue'
 import FinancialStatus from '@/components/finance/FinancialStatus.vue'
 import MoneyText from '@/components/finance/MoneyText.vue'
 import { formatOperationDateTime } from '@/components/ui/date'
-import DemoModeBanner from '@/components/shared/DemoModeBanner.vue'
 import EmptyState from '@/components/shared/EmptyState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import {
   RECEIVABLES_ROUTE_PATH,
   buildProcessingFeeCreatePath,
 } from '@/features/prototype/contracts'
-import { usePrototypeStore } from '@/features/prototype/stores/prototype'
+import { useBusinessStore } from '@/features/business/businessStore'
 import {
   buildReceivableAllocationRows,
   buildReceivableAuditEntries,
@@ -44,7 +43,11 @@ import { STATUS_LABELS, statusKind } from './receivableList'
 
 const route = useRoute()
 const router = useRouter()
-const store = usePrototypeStore()
+const store = useBusinessStore()
+
+onMounted(() => {
+  void store.load().catch(() => undefined)
+})
 
 const receivableId = computed(() => String(route.params.id ?? ''))
 
@@ -107,9 +110,8 @@ function goRegisterPayment(): void {
 
 <template>
   <div class="flex flex-col gap-6" data-testid="receivable-detail-page">
-    <DemoModeBanner />
 
-    <PageHeader title="应收单详情" description="应收单据、回款记录与核销明细（虚构演示数据）">
+    <PageHeader title="应收单详情" description="应收单据、回款记录与核销明细（真实数据库派生）">
       <template #actions>
         <Button variant="secondary" data-testid="back-to-list" @click="goBack">返回列表</Button>
         <Button

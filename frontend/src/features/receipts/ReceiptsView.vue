@@ -1,33 +1,34 @@
 <script setup lang="ts">
 /**
- * 加工费回款（收款单列表 + 登记回款 + 多对多核销）页面。
+ * 加工费回款（收款单列表 + 登记回款 + 多对多核销）页面 —— 正式业务页面。
  *
  * 跨页路由契约（contracts/navigation.ts，冻结）：
  *   /business/processing-fee?action=create[&customerId=...][&receivableId=...]
  * 参数经 parseProcessingFeeRouteQuery 验证后预填（无效参数安全处理，不误核销）。
  *
- * 数据只经 usePrototypeStore 读取（单一数据源）；金额红线见 utils/decimal.ts。
+ * 数据来源：useBusinessStore（真实后端 + MySQL）；金额红线见 utils/decimal.ts。
  */
-import { ref, watch, type Ref } from 'vue'
+import { onMounted, ref, watch, type Ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 import { AlertTriangle } from '@lucide/vue'
 
 import Button from '@/components/ui/button/Button.vue'
-import DemoModeBanner from '@/components/shared/DemoModeBanner.vue'
+import LoadingState from '@/components/shared/LoadingState.vue'
 import PageHeader from '@/components/shared/PageHeader.vue'
 import type { EntityId } from '@/features/prototype/contracts'
-import { usePrototypeStore } from '@/features/prototype/stores/prototype'
+import { useBusinessStore } from '@/features/business/businessStore'
 import ReceiptListSection from './ReceiptListSection.vue'
 import ReceiptRegistrationForm from './ReceiptRegistrationForm.vue'
 import { parseProcessingFeeRouteQuery } from './receiptModel'
 
 const route = useRoute()
-const store = usePrototypeStore()
+const store = useBusinessStore()
 
 const registrationOpen = ref(false)
 const routeNotices: Ref<string[]> = ref([])
 const prefill: Ref<{ customerId: EntityId | null; receivableId: EntityId | null } | null> = ref(null)
+const ready = ref(false)
 
 /** 识别并应用跨页路由参数（action=create 展开登记表单并预填；无效参数提示并忽略） */
 function applyRouteParams(): void {
@@ -45,7 +46,29 @@ function applyRouteParams(): void {
   }
 }
 
-watch(() => route.query, applyRouteParams, { immediate: true, deep: true })
+onMounted(async () => {
+  try {
+    await store.load()
+  } finally {
+    ready.value = true
+  }
+})
+
+watch(
+  () => route.query,
+  () => {
+    if (ready.value) {
+      applyRouteParams()
+    }
+  },
+  { immediate: true, deep: true },
+)
+
+watch(ready, (value) => {
+  if (value) {
+    applyRouteParams()
+  }
+})
 
 function openRegistration(): void {
   registrationOpen.value = true
@@ -54,8 +77,6 @@ function openRegistration(): void {
 
 <template>
   <div class="flex flex-col gap-6">
-    <DemoModeBanner />
-
     <PageHeader title="加工费回款" description="登记实际到账款项，并与未结清应收单多对多核销；一笔收款只记一次资金流入。">
       <template #actions>
         <Button data-testid="open-registration" @click="openRegistration">登记回款</Button>
@@ -76,11 +97,16 @@ function openRegistration(): void {
     </ul>
 
     <ReceiptRegistrationForm
+      v-if="ready"
       :open="registrationOpen"
       :prefill="prefill"
       @update:open="registrationOpen = $event"
+      @confirmed="store.refreshReceivables()"
     />
+    <div v-else class="rounded-panel border border-border bg-surface">
+      <LoadingState :rows="4" label="回款数据加载中" />
+    </div>
 
-    <ReceiptListSection />
+    <ReceiptListSection v-if="ready" />
   </div>
 </template>

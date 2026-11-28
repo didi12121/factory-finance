@@ -26,10 +26,14 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 数据库级幂等与并发安全：
- * 1) 并发两线程同单据 → 仅一条流水，另一请求 409 CONFLICT；
- * 2) 同账户两笔并发 → 余额与独立重算一致；
- * 3) 顺序重复提交（同客户端单据编号）→ 409。
+ * 请求幂等（独立于业务单据编号）+ 并发安全：
+ * <ol>
+ *   <li>并发同幂等键 → 仅生成一张单据与一条流水（两请求均返回同一单据）；</li>
+ *   <li>不同幂等键的相同业务内容 → 允许各自正常提交（业务内容不参与幂等判断）；</li>
+ *   <li>同键异参 → 409 CONFLICT；</li>
+ *   <li>同账户并发两笔不同业务 → 余额与独立 SQL 重算一致；</li>
+ *   <li>同客户端单据编号、不同幂等键 → 409（编号唯一键为最终防线）。</li>
+ * </ol>
  * 业务日期取 T-4。
  */
 class IdempotencyConcurrencyIT extends TreasuryTestSupport {
@@ -41,11 +45,12 @@ class IdempotencyConcurrencyIT extends TreasuryTestSupport {
     private ExpenseService expenseService;
 
     @Test
-    void concurrentSameDocumentCreatesExactlyOneFlow() throws Exception {
+    void concurrentSameIdempotencyKeyCreatesExactlyOneDocumentAndFlow() throws Exception {
         long shareholderId = seedShareholder("并发股东", "ENABLED");
         long accountId = createAccount("并发出资账户", "500.00");
+        String idemKey = newIdempotencyKey();
         CreateContributionRequest request = new CreateContributionRequest(
-                shareholderId, day(4), accountId, "1000.00", "并发同单据", null);
+                shareholderId, day(4), accountId, "1000.00", "并发同键", null, idemKey);
 
         CyclicBarrier barrier = new CyclicBarrier(2);
         ExecutorService pool = Executors.newFixedThreadPool(2);
@@ -62,32 +67,114 @@ class IdempotencyConcurrencyIT extends TreasuryTestSupport {
             List<Future<Object>> futures = pool.invokeAll(tasks, 30, TimeUnit.SECONDS);
 
             AtomicInteger success = new AtomicInteger();
-            AtomicInteger conflict = new AtomicInteger();
             String docNo = null;
             for (Future<Object> future : futures) {
                 Object outcome = future.get();
-                if (outcome instanceof BusinessException ex) {
-                    conflict.incrementAndGet();
-                    assertThat(ex.getErrorCode().name()).isEqualTo("CONFLICT");
-                } else {
-                    success.incrementAndGet();
-                    docNo = ((ContributionView) outcome).docNo();
-                }
+                assertThat(outcome).as("同幂等键并发不得抛错（应返回同一单据）")
+                        .isNotInstanceOf(BusinessException.class);
+                success.incrementAndGet();
+                docNo = ((ContributionView) outcome).docNo();
             }
-            assertThat(success.get()).as("同单据并发应恰有一笔成功").isEqualTo(1);
-            assertThat(conflict.get()).as("另一笔应 409 CONFLICT").isEqualTo(1);
+            assertThat(success.get()).isEqualTo(2);
+            assertThat(docNo).isNotNull();
 
-            // 数据库级断言：仅一条单据 + 一条流水
             Integer docs = jdbcTemplate.queryForObject(
                     "SELECT COUNT(*) FROM tst_shareholder_contribution WHERE doc_no = ?", Integer.class, docNo);
-            assertThat(docs).isEqualTo(1);
+            assertThat(docs).as("同键只允许一张单据").isEqualTo(1);
             Long docId = jdbcTemplate.queryForObject(
                     "SELECT id FROM tst_shareholder_contribution WHERE doc_no = ?", Long.class, docNo);
-            assertThat(flowCount("CONTRIBUTION", docId)).isEqualTo(1);
+            assertThat(flowCount("CONTRIBUTION", docId)).as("同键只允许一条资金流水").isEqualTo(1);
             assertThat(rawBalance(accountId)).isEqualByComparingTo("1500");
+
+            Integer idemRows = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM sys_request_idempotency WHERE operation = 'CONTRIBUTION_CREATE' "
+                            + "AND idem_key = ?",
+                    Integer.class, idemKey);
+            assertThat(idemRows).as("幂等键仅占位一条").isEqualTo(1);
         } finally {
             pool.shutdownNow();
         }
+    }
+
+    @Test
+    void differentKeysWithSameContentCreateSeparateDocuments() throws Exception {
+        long shareholderId = seedShareholder("同内容股东", "ENABLED");
+        long accountId = createAccount("同内容账户", "0.00");
+
+        Map<String, Object> body = map(
+                "shareholderId", shareholderId, "contributionDate", day(4), "accountId", accountId,
+                "amount", "300.00", "remark", "相同业务内容");
+        HttpResult first = post("/api/v1/treasury/contributions", body);
+        HttpResult second = post("/api/v1/treasury/contributions", body);
+        assertThat(first.status()).isEqualTo(200);
+        assertThat(second.status()).as("不同幂等键的相同业务内容允许正常提交").isEqualTo(200);
+        assertThat(first.dataText("docNo")).isNotEqualTo(second.dataText("docNo"));
+
+        Integer docs = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM tst_shareholder_contribution WHERE remark = '相同业务内容'", Integer.class);
+        assertThat(docs).isEqualTo(2);
+        assertThat(rawBalance(accountId)).isEqualByComparingTo("600");
+    }
+
+    @Test
+    void sameKeyWithDifferentPayloadRejected() throws Exception {
+        long shareholderId = seedShareholder("异参股东", "ENABLED");
+        long accountId = createAccount("异参账户", "0.00");
+        String idemKey = newIdempotencyKey();
+
+        HttpResult first = post("/api/v1/treasury/contributions", map(
+                "shareholderId", shareholderId, "contributionDate", day(4), "accountId", accountId,
+                "amount", "100.00", "idempotencyKey", idemKey));
+        assertThat(first.status()).isEqualTo(200);
+
+        HttpResult second = post("/api/v1/treasury/contributions", map(
+                "shareholderId", shareholderId, "contributionDate", day(4), "accountId", accountId,
+                "amount", "999.00", "idempotencyKey", idemKey));
+        assertThat(second.status()).as("同键异参必须拒绝").isEqualTo(409);
+        assertThat(second.code()).isEqualTo("CONFLICT");
+        assertThat(rawBalance(accountId)).isEqualByComparingTo("100");
+    }
+
+    @Test
+    void sequentialResubmissionWithSameKeyReturnsOriginalDocument() throws Exception {
+        long accountId = createAccount("顺序幂等账户", "200.00");
+        String idemKey = newIdempotencyKey();
+        Map<String, Object> body = map(
+                "category", "OTHER", "content", "顺序重复", "payDate", day(4),
+                "accountId", accountId, "amount", "20.00", "idempotencyKey", idemKey);
+
+        HttpResult first = post("/api/v1/treasury/expenses", body);
+        HttpResult second = post("/api/v1/treasury/expenses", body);
+        assertThat(first.status()).isEqualTo(200);
+        assertThat(second.status()).as("同键同参重复提交应返回原单据").isEqualTo(200);
+        assertThat(second.dataText("docNo")).isEqualTo(first.dataText("docNo"));
+
+        Integer docs = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM tst_expense WHERE doc_no = ?", Integer.class, first.dataText("docNo"));
+        assertThat(docs).isEqualTo(1);
+        assertThat(rawBalance(accountId)).isEqualByComparingTo("180");
+    }
+
+    @Test
+    void sameClientDocNoWithDifferentKeysRejected() throws Exception {
+        long accountId = createAccount("重复编号账户", "200.00");
+        // 测试库跨运行累积数据：单据编号附加随机段，保证每次运行编号唯一
+        String docNo = "ZC-" + day(4).replace("-", "").substring(0, 6) + "-"
+                + (100000 + java.util.concurrent.ThreadLocalRandom.current().nextInt(800000));
+        Map<String, Object> body = map(
+                "category", "OTHER", "content", "重复编号", "payDate", day(4),
+                "accountId", accountId, "amount", "20.00", "docNo", docNo);
+
+        HttpResult first = post("/api/v1/treasury/expenses", body);
+        assertThat(first.status()).isEqualTo(200);
+        HttpResult second = post("/api/v1/treasury/expenses", body);
+        assertThat(second.status()).as("单据编号唯一键仍为最终防线").isEqualTo(409);
+        assertThat(second.code()).isEqualTo("CONFLICT");
+
+        Integer docs = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM tst_expense WHERE doc_no = ?", Integer.class, docNo);
+        assertThat(docs).isEqualTo(1);
+        assertThat(rawBalance(accountId)).isEqualByComparingTo("180");
     }
 
     @Test
@@ -95,10 +182,10 @@ class IdempotencyConcurrencyIT extends TreasuryTestSupport {
         long accountId = createAccount("并发支出台账账户", "1000.00");
         CreateExpenseRequest first = new CreateExpenseRequest(
                 "PURCHASE", "并发支出A", null, day(4), accountId, "100.00",
-                "收款方A", null, null, null, "并发A", null);
+                "收款方A", null, null, null, "并发A", null, newIdempotencyKey());
         CreateExpenseRequest second = new CreateExpenseRequest(
                 "RENT", "并发支出B", null, day(4), accountId, "250.00",
-                "收款方B", null, null, null, "并发B", null);
+                "收款方B", null, null, null, "并发B", null, newIdempotencyKey());
 
         CyclicBarrier barrier = new CyclicBarrier(2);
         ExecutorService pool = Executors.newFixedThreadPool(2);
@@ -116,14 +203,12 @@ class IdempotencyConcurrencyIT extends TreasuryTestSupport {
 
             int landed = 0;
             for (Future<Object> future : futures) {
-                Object outcome = future.get();
-                if (!(outcome instanceof BusinessException)) {
+                if (!(future.get() instanceof BusinessException)) {
                     landed++;
                 }
             }
             assertThat(landed).as("不同内容并发两笔应全部落库").isEqualTo(2);
 
-            // 并发后余额 = 重算值（独立 SQL）
             BigDecimal recomputed = rawBalance(accountId);
             assertThat(recomputed).as("1000 − 100 − 250").isEqualByComparingTo("650");
             Integer flows = jdbcTemplate.queryForObject(
@@ -135,23 +220,14 @@ class IdempotencyConcurrencyIT extends TreasuryTestSupport {
     }
 
     @Test
-    void sequentialResubmissionWithSameClientDocNoRejected() throws Exception {
-        long accountId = createAccount("顺序重复提交账户", "200.00");
-        String docNo = "ZC-" + day(4).replace("-", "").substring(0, 6) + "-9002";
-        Map<String, Object> body = map(
-                "category", "OTHER", "content", "顺序重复", "payDate", day(4),
-                "accountId", accountId, "amount", "20.00", "docNo", docNo);
-
-        HttpResult first = post("/api/v1/treasury/expenses", body);
-        assertThat(first.status()).isEqualTo(200);
-        HttpResult second = post("/api/v1/treasury/expenses", body);
-        assertThat(second.status()).isEqualTo(409);
-        assertThat(second.code()).isEqualTo("CONFLICT");
-
-        Integer docs = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM tst_expense WHERE doc_no = ?", Integer.class, docNo);
-        assertThat(docs).isEqualTo(1);
-        assertThat(rawBalance(accountId)).isEqualByComparingTo("180");
+    void missingIdempotencyKeyRejected() throws Exception {
+        long accountId = createAccount("缺键账户", "100.00");
+        HttpResult result = post("/api/v1/treasury/expenses", map(
+                "category", "OTHER", "content", "缺键", "payDate", day(4),
+                "accountId", accountId, "amount", "10.00", "idempotencyKey", ""));
+        assertThat(result.status()).isEqualTo(400);
+        assertThat(result.code()).isEqualTo("VALIDATION_ERROR");
+        assertThat(rawBalance(accountId)).isEqualByComparingTo("100");
     }
 
     private long createAccount(String name, String opening) throws Exception {

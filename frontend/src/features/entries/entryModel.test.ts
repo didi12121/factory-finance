@@ -49,9 +49,43 @@ describe('支出表单：分类/付款账户/金额/日期', () => {
     expect(errors.accountId).toBe('请选择付款账户')
   })
 
-  it('合法表单无错误', () => {
-    const errors = validateExpenseForm({ category: 'SALARY', accountId: '1', amount: '100', bizDate: '2026-11-27' })
+  it('工资支出缺少员工/工资月份时拒绝', () => {
+    const errors = validateExpenseForm({
+      category: 'SALARY',
+      content: '11月工资',
+      accountId: '1',
+      amount: '100',
+      bizDate: '2026-11-27',
+    })
+    expect(errors.employeeName).toBe('工资支出必须填写员工名称')
+    expect(errors.salaryMonth).toBe('请选择工资月份')
+  })
+
+  it('合法表单无错误（工资必填字段齐全）', () => {
+    const errors = validateExpenseForm({
+      category: 'SALARY',
+      content: '11月工资',
+      employeeName: '张三',
+      salaryMonth: '2026-11',
+      accountId: '1',
+      amount: '100',
+      bizDate: '2026-11-27',
+    })
     expect(errors).toEqual({})
+  })
+
+  it('电费分类可用（ELECTRICITY；UTILITIES 已从请求取值中移除）', () => {
+    const errors = validateExpenseForm({
+      category: 'ELECTRICITY',
+      content: '11月电费',
+      accountId: '1',
+      amount: '800',
+      bizDate: '2026-11-27',
+    })
+    expect(errors).toEqual({})
+    expect(validateExpenseForm({ category: 'UTILITIES', content: 'x', accountId: '1', amount: '1', bizDate: '2026-11-27' }).category).toBe(
+      '请选择支出分类',
+    )
   })
 
   it('载荷装配（payDate + content + payee）', () => {

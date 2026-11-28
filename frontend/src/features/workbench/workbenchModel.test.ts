@@ -77,9 +77,21 @@ describe('经营概览指标装配（业务与财务分离）', () => {
     expect(byKey.periodInflow?.value).toBe('80000.50')
     expect(byKey.periodExpenses?.value).toBe('23456.78')
 
-    // 应收相关区域标注「待开通」，不显假数字
+    // 未取到应收/应付余额时明确标注「数据不可用」，不显假数字
     expect(byKey.receivableOutstanding?.value).toBeNull()
-    expect(byKey.receivableOutstanding?.caption).toBe('待开通')
+    expect(byKey.receivableOutstanding?.caption).toBe('应收数据不可用')
+    expect(byKey.payableOutstanding?.value).toBeNull()
+    expect(byKey.payableOutstanding?.caption).toBe('应付数据不可用')
+  })
+
+  it('应收/应付余额来自真实数据库派生值', () => {
+    const metrics = buildWorkbenchMetrics(buildSummary(), {
+      receivableOutstanding: '5000.00',
+      payableOutstanding: '6000.00',
+    })
+    const byKey = Object.fromEntries(metrics.map((m) => [m.key, m]))
+    expect(byKey.receivableOutstanding?.value).toBe('5000.00')
+    expect(byKey.payableOutstanding?.value).toBe('6000.00')
   })
 
   it('不标注「净利润」（资金结余 ≠ 净利润）', () => {

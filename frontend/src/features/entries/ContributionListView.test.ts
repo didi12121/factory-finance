@@ -113,11 +113,14 @@ describe('股东出资页（真实 API）', () => {
     // 表单值装配（Select/AmountInput/DateInput 合法值）
     const dialog = wrapper.findComponent(FormDialog)
     dialog.vm.$emit('update:modelValue', {
+      shareholderId: '1',
+      accountId: '2',
       shareholderName: '王五',
       accountName: '现金账户',
       amount: '50,000.00',
       bizDate: '2026-11-27',
       remark: '出资款',
+      idempotencyKey: 'test-key-contribution-0001',
     })
     await flushPromises()
     dialog.vm.$emit('submit')
@@ -130,6 +133,7 @@ describe('股东出资页（真实 API）', () => {
       amount: '50000.00',
       contributionDate: '2026-11-27',
       remark: '出资款',
+      idempotencyKey: 'test-key-contribution-0001',
     })
     wrapper.unmount()
   })

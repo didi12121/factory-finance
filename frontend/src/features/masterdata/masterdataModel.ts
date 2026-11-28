@@ -3,7 +3,15 @@
  * 后端校验为最终防线；编号由后端生成，前端禁止生成/修改业务编号。
  */
 
-import type { Customer, CustomerInput, EnableStatus, Shareholder, ShareholderInput } from '@/services/api'
+import type {
+  Customer,
+  CustomerInput,
+  EnableStatus,
+  Shareholder,
+  ShareholderInput,
+  Supplier,
+  SupplierInput,
+} from '@/services/api'
 
 /** 启停用筛选值（Select） */
 export const STATUS_FILTER_ALL = 'ALL' as const
@@ -37,7 +45,7 @@ export function masterdataFormFromValues(values: Record<string, string>): Master
 
 /** 由行数据装配编辑表单 */
 export function masterdataFormFromRow(
-  row: Customer | Shareholder,
+  row: Customer | Shareholder | Supplier,
   withAddress: boolean,
 ): MasterdataFormState {
   const address = withAddress && 'address' in row ? (row.address ?? '') : ''
@@ -78,6 +86,17 @@ export function toCustomerInput(form: MasterdataFormState): CustomerInput {
     contact: form.contact.trim() === '' ? null : form.contact.trim(),
     phone: form.phone.trim() === '' ? null : form.phone.trim(),
     address: form.address.trim() === '' ? null : form.address.trim(),
+    remark: form.remark.trim() === '' ? null : form.remark.trim(),
+    status: form.status,
+  }
+}
+
+/** 表单 → 供应商载荷（编号后端生成 SUP-0001 递增） */
+export function toSupplierInput(form: MasterdataFormState): SupplierInput {
+  return {
+    name: form.name.trim(),
+    contact: form.contact.trim() === '' ? null : form.contact.trim(),
+    phone: form.phone.trim() === '' ? null : form.phone.trim(),
     remark: form.remark.trim() === '' ? null : form.remark.trim(),
     status: form.status,
   }

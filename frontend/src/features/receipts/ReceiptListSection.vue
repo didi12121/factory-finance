@@ -3,7 +3,7 @@
  * 收款单列表：筛选（客户/账户/日期/搜索）+ DataTable（金额列 compareAmounts 精确排序、
  * 本地分页）+ 收款单详情（DetailSheet）。
  *
- * 数据只经 usePrototypeStore 读取：列表走 listReceipts（契约查询语义），
+ * 数据来源：useBusinessStore（真实后端）；列表走 listReceipts（契约查询语义），
  * 已核销/未分配/核销状态由核销明细实时派生（buildReceiptRowViews）。
  */
 import { computed, h, ref, watch, type Ref, type VNode } from 'vue'
@@ -21,11 +21,11 @@ import FinancialStatus from '@/components/finance/FinancialStatus.vue'
 import MoneyText from '@/components/finance/MoneyText.vue'
 import SearchInput from '@/components/shared/SearchInput.vue'
 import type { EntityId, Receipt, ReceiptDetail, ReceiptListQuery } from '@/features/prototype/contracts'
-import { usePrototypeStore } from '@/features/prototype/stores/prototype'
+import { useBusinessStore } from '@/features/business/businessStore'
 import ReceiptDetailSheet from './ReceiptDetailSheet.vue'
 import { buildReceiptRowViews, type ReceiptRowView } from './receiptModel'
 
-const store = usePrototypeStore()
+const store = useBusinessStore()
 
 /* ------------------------------ 筛选 ------------------------------ */
 
@@ -117,6 +117,14 @@ const selectedDetail = ref<ReceiptDetail | null>(null)
 function openDetail(id: EntityId): void {
   selectedDetail.value = store.receiptDetailById(id)
   sheetOpen.value = true
+  if (selectedDetail.value === null) {
+    // 列表快照未命中（如刚确认的收款单）时从后端补读
+    void store.getReceiptById(id).then((detail) => {
+      if (detail !== null) {
+        selectedDetail.value = detail
+      }
+    })
+  }
 }
 
 /* ------------------------------ 列定义 ------------------------------ */

@@ -97,7 +97,8 @@ public class AccountService {
 
     @Transactional
     public AccountView update(UpdateAccountRequest request) {
-        FundAccount account = accountMapper.selectById(request.id());
+        // 锁定账户行：期初修改与资金流水写入串行化（禁止期初日期晚于已产生流水日期）
+        FundAccount account = accountLookup.lock(request.id());
         if (account == null) {
             throw BusinessException.notFound("资金账户");
         }
