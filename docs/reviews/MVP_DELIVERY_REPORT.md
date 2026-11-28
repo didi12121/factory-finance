@@ -81,7 +81,7 @@
 | --- | --- |
 | 全新数据库初始化 | ✅ 空库启动（`mst_customer=0 / tst_fund_account=0 / tst_fund_transaction=0`，仅 1 个 admin 用户） |
 | Flyway 迁移 | ✅ `flyway_schema_history` V1–V5 全部 `success=1` |
-| 管理员初始化与登录 | ✅ `POST /api/v1/auth/login`（经 Nginx 8088）返回 token |
+| 管理员初始化与登录 | ✅ `POST /api/v1/auth/login`（经 Nginx 8088）返回 token；**按浏览器同源行为（携带 `Origin`）复验通过**（该路径首次复验失败，见下方缺陷与修复） |
 | 前后端真实接口连接 | ✅ 经 Nginx 反向代理完成登录与全部业务写入；SPA 首页 200 |
 | 登记出资/支出/应收/回款 | ✅ 经 8088 创建：CZ-202611-0001 / ZC-202611-0001 / YS-202611-0001 / SK-202611-0001；账户余额 12,800.00（1,000 期初 + 5,000 出资 − 1,200 支出 + 8,000 回款），流水 3 条，应收 `SETTLED/0.00` |
 | 采购支出关联（部署态） | ✅ 候选列表含 ZC-202611-0001 → 关联生成 YF-202611-0001（SETTLED）；重复关联 409；撤销支出 409（提示先撤销应付单） |
@@ -89,6 +89,14 @@
 | 容器重启后数据保留 | ✅ `docker compose restart` 后三容器 healthy，客户/账户/流水/收款单/批次计数不变（3/1/3/1/1），可继续写入（新客户 CUS-0004） |
 | 数据库备份与恢复 | ✅ `mysqldump`（42,861 bytes）→ 恢复到全新库 `factory_finance_restore` → 计数一致（客户 4 / 流水 6 / 核销 2 / 批次 1），随后清理恢复库 |
 | 生产环境无演示财务数据 | ✅ 库内 `示例/虚构/演示` 关键字命中 0；生产前端产物 `示例客户`、`DEMO_TODAY` 命中 0 |
+
+### 部署验证中发现并修复的缺陷（P1，已修复）
+
+- **现象**：浏览器打开 `http://127.0.0.1:8088` 登录 → 提示「网络请求失败，请稍后重试」；而 curl 直接调用同一接口返回 200。
+- **根因**：Nginx 使用 `proxy_set_header Host $host`（不含端口），后端重建的请求 URL（`http://127.0.0.1`）与浏览器 `Origin`（`http://127.0.0.1:8088`）不一致 → Spring 将同源 POST 判为跨域，来源不在白名单 → 403（空响应体）→ 前端 axios 归类为网络错误。此前 curl/Node 验证均不携带 `Origin`，故未暴露。
+- **修复**：Nginx 改为 `Host $http_host` 并新增 `X-Forwarded-Host $http_host`；Compose 注入 `APP_CORS_ALLOWED_ORIGINS`（默认覆盖本机前端口，支持 `.env` 覆盖以适配局域网 IP）。
+- **复验**：带 `Origin: http://127.0.0.1:8088` 与 `http://localhost:8088` 的登录/写请求均返回 200；浏览器侧登录成功。
+- **教训**：部署验证必须使用**真实浏览器或带 `Origin` 的请求**，仅用无 Origin 的命令行请求会漏掉 CORS 缺陷。
 
 > 说明：本次真实 Docker 部署验证已完成（上一阶段因 Docker 守护进程不可用而未验证，本阶段环境已具备并实测通过）。
 > 验证后已 `docker compose stop` 释放端口，数据卷保留。

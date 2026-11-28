@@ -42,6 +42,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       # 管理员初始密码：容器首次启动初始化 admin 账号时必须注入（缺失则启动校验失败）
       ADMIN_INITIAL_PASSWORD: ${ADMIN_INITIAL_PASSWORD:?set ADMIN_INITIAL_PASSWORD in .env}
+      # 允许的浏览器来源（同源经 Nginx 代理时正常不需 CORS；此处覆盖用 IP/域名直连的场景）
+      APP_CORS_ALLOWED_ORIGINS: ${APP_CORS_ALLOWED_ORIGINS:-http://localhost:${FRONTEND_PORT:-8088},http://127.0.0.1:${FRONTEND_PORT:-8088}}
     ports:
       # 宿主机映射端口可通过 BACKEND_PORT 配置；容器内部固定 8080
       # （Nginx 代理与健康检查统一使用容器网络内 backend:8080）

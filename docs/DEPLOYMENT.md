@@ -28,6 +28,10 @@ cp .env.example .env
 其余可选：`MYSQL_DATABASE`（默认 factory_finance）、`MYSQL_USER`（默认 factory）、
 `BACKEND_PORT` / `FRONTEND_PORT` / `MYSQL_PORT`、`SPRING_PROFILES_ACTIVE`（默认 docker）。
 
+`APP_CORS_ALLOWED_ORIGINS`（可选）：浏览器允许来源，逗号分隔。默认覆盖 `http://localhost:<FRONTEND_PORT>` 与
+`http://127.0.0.1:<FRONTEND_PORT>`。**用局域网 IP 或自定义域名访问时必须显式加入**，例如
+`APP_CORS_ALLOWED_ORIGINS=http://192.168.1.10:8088`。
+
 > 安全提示：`.env` 不得提交到 Git（已在 `.gitignore`）；生产环境建议使用密钥管理或 `docker secret` 注入。
 
 ## 3. 启动
@@ -105,5 +109,6 @@ docker compose ps && docker compose logs -f backend
 | 后端容器反复重启 | 查看 `docker compose logs backend`；常见为 `ADMIN_INITIAL_PASSWORD`/`JWT_SECRET` 缺失或占位值 |
 | 端口被占用 | 修改 `.env` 中 `BACKEND_PORT` / `FRONTEND_PORT`（容器内端口固定 8080/80） |
 | 登录提示用户名或密码错误 | 确认 `ADMIN_INITIAL_PASSWORD`（仅首次启动生效；修改环境变量不会重置已有密码） |
+| 登录/保存时提示「网络请求失败」（Network Error） | 浏览器 POST 会携带 `Origin`，若反向代理未透传带端口的 `Host`，后端会把同源请求判为跨域并返回 403（空响应体）→ 前端显示网络错误。已通过 `proxy_set_header Host $http_host` + `X-Forwarded-Host` 修复；如用**局域网 IP / 自定义域名**访问，还需把该来源加入 `APP_CORS_ALLOWED_ORIGINS`（见 §2） |
 | 导入报「模板不匹配」 | 必须使用下载的模板且表头不可改动；新增列需更新模板版本 |
 | 导入报「期初日期」相关错误 | 资金流水日期不得早于账户期初日期；先导期初账户，再导历史流水 |

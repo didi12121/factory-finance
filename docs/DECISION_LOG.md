@@ -64,6 +64,7 @@
 | 2026-11-28 | 数据导入全部经既有业务 Service（新增 `MasterdataWriteApi` / `TreasuryWriteApi` / `ReceivableWriteApi` 端口），**逐行独立事务** | MVP §3 明确禁止绕过财务校验、事务、幂等与资金流水规则；逐行事务保证失败行零残留，成功行记录业务单据主键可追溯 | 单行失败不影响其它行；导入批次与行明细落库；不引入批量事务导致的整体回滚风险 | 已确认 |
 | 2026-11-28 | 导入去重双保险：**文件级**（模板 + 文件 SHA-256 唯一，重复确认返回既有批次）与**行级**（幂等键 = `imp` + SHA-256(模板+规范化行内容) 前 40 位） | 「重复导入防护」需同时覆盖「同一文件重复提交」与「修订后文件中的相同内容行」；业务内容规范化（金额两位小数）避免格式差异导致漏判 | 同键同参由业务服务幂等返回原单据；文件内完全相同的行标记 DUPLICATE 跳过 | 已确认 |
 | 2026-11-28 | 生产部署补充：Nginx `client_max_body_size 12m`；`.env` 增加 `ADMIN_INITIAL_PASSWORD`；`application.yml` multipart 10MB/12MB | Excel 导入经 Nginx 反向代理，默认 1MB 会 413；Compose 后端环境变量此前缺少管理员初始密码 | 生产上传与容器初始化均可正常工作；已用真实 Compose 部署实测 | 已确认 |
+| 2026-11-28 | Nginx 反向代理改为透传 **`Host $http_host` + `X-Forwarded-Host`**，Compose 注入 `APP_CORS_ALLOWED_ORIGINS` | 原配置 `Host $host` 丢失端口，后端重建请求 URL 与浏览器 `Origin` 不一致，同源 POST 被判为跨域 → 403 空响应体（前端表现为「网络请求失败」）；浏览器登录/保存全部失败 | 同源经代理访问不再触发 CORS 判定；局域网 IP/域名访问可通过 `APP_CORS_ALLOWED_ORIGINS` 显式放行；部署验证新增「带 Origin 请求」验收项 | 已确认 |
 ## 记录规则
 
 1. 新决策追加到表格末尾，日期使用 `YYYY-MM-DD`。
